@@ -1,0 +1,58 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env/
+.venv/
+env/
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# Testing cache
+.pytest_cache/
+.cache/
+
+# MyPy
+.mypy_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+
+# Pydantic compiled schema cache
+__pydantic__/ 
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Compiled C extensions
+*.so
+
+# dotenv files
+.env
+.env.*
+
+# Docker
+*.pid
+
+# FastAPI static/uploads/temp folders (optional - remove if needed)
+static/
+uploads/
+tmp/
+backend_sql/postgres-data/
+backend_sql/scripts/csv/

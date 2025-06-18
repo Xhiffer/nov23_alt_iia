@@ -33,14 +33,26 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_USER}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "8085:80"
+      - "8084:80"
     depends_on:
       - db
     restart: always
     networks:
       - dbnet
 
-
+  ai_models:
+    build:
+      context:  ./models
+    container_name: ai_models
+    volumes:
+      - ./models:/app
+    ports:
+      - "81:81"
+    networks:
+      - dbnet
+    depends_on:
+      - db
+    restart: always
 
 networks:
   dbnet:
