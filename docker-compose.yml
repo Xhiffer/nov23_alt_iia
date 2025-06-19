@@ -54,5 +54,18 @@ services:
       - db
     restart: always
 
+
+  frontend:
+      build:
+        context: ./front
+      container_name: frontend
+      volumes:
+        - ./front:/app
+      ports:
+        - "5010:5010"
+      networks:
+        - dbnet
+      restart: always
+
 networks:
   dbnet:
