@@ -15,3 +15,6 @@ def home():
 @main.route("/about")
 def about():
     return render_template("about.html")
+@main.route("/blank")
+def blank():
+    return render_template("blank.html")  # Don't keep the stray "return 'hi'"
