@@ -108,7 +108,11 @@ def create_video_from_images(image_paths, video_path):
 def accident_detection_model(video_path):
     # Dummy function to simulate prediction
     print(f"Analyzing video: {video_path}")
-    return "Accident Detected" if int(datetime.now().second) % 2 == 0 else "No Accident"
+    # Simule une détection aléatoire d'accident (une fois sur deux)
+    if int(datetime.now().second) % 2 == 0:
+        return "Accident Detected"
+    return "No Accident"
+
 
 def send_video_to_gravity_model(video_path):
     return "hi"
@@ -116,28 +120,29 @@ def send_video_to_gravity_model(video_path):
 print("Starting capture and detection loop...")
 start_time = time.time()
 
-while True:
-    fetch_and_save_image()
-    cleanup_old_images()
+if __name__ == "__main__":
+    last_video_time = time.time()
 
-    # Every VIDEO_INTERVAL seconds, create video and run dummy model
-    if int(time.time() - start_time) % VIDEO_INTERVAL == 0:
-        images = get_recent_images()
-        if images:
-            video_name = datetime.now().strftime("%Y%m%d_%H%M%S") + ".mp4"
+    while True:
+        filepath = fetch_and_save_image()
+        cleanup_old_images()
+
+        now = time.time()
+        if now - last_video_time >= VIDEO_INTERVAL:
+            image_paths = get_recent_images()
+            video_name = datetime.now().strftime("accident_%Y%m%d_%H%M%S.mp4")
             video_path = os.path.join(VIDEO_SAVE_DIR, video_name)
-            if create_video_from_images(images, video_path):
-                result = accident_detection_model(video_path)
-                #if true keep the video, else delete it
-                if result == "Accident Detected":
-                    print(f"Accident detected, keeping video: {video_path}")
-                    #function that sends the video to the gravity_data_labelisation model
-                    send_video_to_gravity_model(video_path)
-                else:
-                    print(f"No accident detected, deleting video: {video_path}")
-                    os.remove(video_path)
-                print(f"Prediction result: {result}")
-        time.sleep(1)  # avoid multiple triggers in same second
+            success = create_video_from_images(image_paths, video_path)
 
-    time.sleep(INTERVAL)
+            if success:
+                result = accident_detection_model(video_path)
+                print(f"Result: {result}")
+
+                if result == "Accident Detected":
+                    # Ici, on simulerait l'envoi vers le modèle `gravity_data_labelisation`
+                    print(f"Send {video_path} + metadata to gravity_data_labelisation")
+            last_video_time = now
+
+        time.sleep(INTERVAL)
+
 

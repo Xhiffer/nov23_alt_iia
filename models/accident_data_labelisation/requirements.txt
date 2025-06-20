@@ -3,14 +3,8 @@ uvicorn
 pydantic
 pytest
 httpx
+python-multipart
 
 
 
 
-
-
-#pour accident detection 
-pillow
-requests
-opencv-python
-opencv-python-headless

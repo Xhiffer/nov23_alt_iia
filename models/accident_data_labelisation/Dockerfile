@@ -5,6 +5,10 @@ FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 COPY requirements.txt .
@@ -17,4 +21,4 @@ COPY . .
 EXPOSE 82
 
 # Start FastAPI using uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "82"]
+CMD ["uvicorn", "accident_data_labelisation:app", "--host", "0.0.0.0", "--port", "82"]

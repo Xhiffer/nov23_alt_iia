@@ -43,7 +43,7 @@ services:
   ai_model_gravity_classification:
     build:
       context:  ./models/gravity_classification
-    container_name: ai_models
+    container_name: ai_model_gravity_classification
     volumes:
       - ./models/gravity_classification:/app
     ports:
@@ -57,7 +57,7 @@ services:
   ai_model_accident_detection:
     build:
       context:  ./models/accident_detection
-    container_name: ai_models
+    container_name: ai_model_accident_detection
     volumes:
       - ./models/accident_detection:/app
     ports:
@@ -70,10 +70,11 @@ services:
 
   ai_model_accident_labelisation:
     build:
-      context:  ./models/accident_labelisation
-    container_name: ai_models
+      context:  ./models/accident_data_labelisation
+    
+    container_name: ai_model_accident_labelisation
     volumes:
-      - ./models/accident_labelisation:/app
+      - ./models/accident_data_labelisation:/app
     ports:
       - "82:82"
     networks:
