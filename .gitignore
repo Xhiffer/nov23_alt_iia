@@ -54,6 +54,9 @@ Thumbs.db
 # static/
 uploads/
 tmp/
-/models/accident_detection/temp/
+/models/accident_detection/temp/video/
+
+/models/accident_detection/temp/cam/
+
 backend_sql/postgres-data/
 backend_sql/scripts/csv/
