@@ -20,5 +20,6 @@ COPY . .
 # Expose the port FastAPI will run on
 EXPOSE 83
 
+CMD ["python3", "accident_detection.py"]
 # Start FastAPI using uvicorn
-CMD ["uvicorn", "accident_detection:app", "--host", "0.0.0.0", "--port", "83"]
+# CMD ["uvicorn", "accident_detection:app", "--host", "0.0.0.0", "--port", "83"]

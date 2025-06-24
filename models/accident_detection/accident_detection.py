@@ -39,6 +39,7 @@ import time
 import requests
 import cv2
 from datetime import datetime
+import glob
 
 # --- Settings ---
 CAM_URL = "http://82.64.88.141:81/cgi-bin/camera?resolution=640&quality=1&Language=0"
@@ -121,6 +122,12 @@ print("Starting capture and detection loop...")
 start_time = time.time()
 
 if __name__ == "__main__":
+    for img_file in glob.glob('/temp/cam/*'):
+        try:
+            os.remove(img_file)
+            print(f"Deleted {img_file}")
+        except Exception as e:
+            print(f"Error deleting {img_file}: {e}")
     last_video_time = time.time()
 
     while True:
