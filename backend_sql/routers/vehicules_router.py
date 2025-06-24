@@ -20,7 +20,7 @@ def get_db():
 async def import_csv():
     try:
         logging.info("Starting img-to-csv import process...")
-        script_path = os.path.join("scripts", "vehicules_csv_to_sql.py")
+        script_path = os.path.join("scripts","csv_to_sql", "vehicules_csv_to_sql.py")
         subprocess.Popen(["python", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         logging.info("img-to-csv import process started successfully.")
         return {"message": "img-to-csv import started successfully!"}
