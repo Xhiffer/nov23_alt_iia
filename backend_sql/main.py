@@ -6,6 +6,7 @@ from routers.usagers_router import router as usagers_router
 from routers.lieux_router import router as lieux_router
 from routers.caract_router import router as caract_router
 
+from routers.resultat_ai_router import router as ai_results_router
 
 
 from fastapi.responses import JSONResponse
@@ -29,6 +30,10 @@ tags_metadata = [
     {
         "name": "Caractéristiques",
         "description": "Informations descriptives liées aux circonstances ou types d’accidents."
+    },
+    {
+        "name": "AiResults",
+        "description": "résultat des différents mondel d'ia."
     }
 ]
 
@@ -40,6 +45,8 @@ app.include_router(vehicules_router, tags=["Véhicules"])
 app.include_router(usagers_router, tags=["Usagers"])
 app.include_router(lieux_router, tags=["Lieux"])
 app.include_router(caract_router, tags=["Caractéristiques"])
+app.include_router(ai_results_router, tags=["AiResults"])
+
 
 
 

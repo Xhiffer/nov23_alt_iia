@@ -35,6 +35,8 @@ import models.vehicules_model
 import models.usagers_model
 import models.caract_model
 import models.lieux_model
+import models.resultat_ai_model
+
 
 # Create all tables (checkfirst prevents dropping/recreating)
 Base.metadata.create_all(bind=engine, checkfirst=True)
