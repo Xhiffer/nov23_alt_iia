@@ -1,20 +1,7 @@
-"""
-Objectif du model :
---> valeurs en entrée :
-- json variables de l'accident
-  -> variables d'accident qu'on peut s'attendre de trouver sur une videéo de sécurité routière
---> retourne gravité estimé de l'accident 
-
-
-Pour l'instant il nous faut juste :
-la fonction qui prend les valeurs en entrée et qui lance une fonction qui renvoie une valeurs randome 
-
-"""
-
-
+import random
+import requests
 from fastapi import FastAPI
 from pydantic import BaseModel
-import random
 
 app = FastAPI()
 
@@ -28,19 +15,22 @@ class DonneesAccident(BaseModel):
 
 @app.post("/estimer_gravite")
 def estimer_gravite(accident: DonneesAccident):
-    """
-    Retourne une gravité d'accident estimée de manière aléatoire.
-    à voir mais surement possible d'avoir plusieurs personnes // plusieurs états
-    """
     gravites_possibles = ['indemne', 'Tué(30j)', 'Blessé hosp. plus de 24h', 'Blessé léger']
     gravite = random.choice(gravites_possibles)
 
-    """
-    envoyer à la base de données :
-    faut que j'envoie : 
-    - resultat gravité estimer
-    - DonneesAccident
-    - la video de l'accident
-    --> je crée ma table dans la base de données 
-    """
-    return {"gravite_estimee": gravite}
+    # Compose data to send to backend API
+    payload = accident.model_dump()
+    payload['gravite_estimee'] = gravite
+
+    # URL of your backend API endpoint (adjust host if needed)
+    backend_url = "http://backend_sql:8000/resultat_ai/"  # or use the container network IP if needed
+
+    # Send POST request to backend
+    response = requests.post(backend_url, json=payload)
+    response.raise_for_status()  # Raise error if something went wrong
+    resultat_ai_response = response.json()
+
+    return {
+        "gravite_estimee": gravite,
+        "backend_response": resultat_ai_response
+    }
