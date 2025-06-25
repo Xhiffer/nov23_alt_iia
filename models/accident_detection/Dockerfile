@@ -22,7 +22,7 @@ EXPOSE 83
 
 
 #erf flemme de lancé direct
-# CMD ["python3", "accident_detection.py"]
+CMD ["python3", "accident_detection.py"]
 
 
 

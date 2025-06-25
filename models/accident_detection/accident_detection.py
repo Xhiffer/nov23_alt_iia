@@ -40,6 +40,7 @@ import requests
 import cv2
 from datetime import datetime
 import glob
+import requests
 
 # --- Settings ---
 CAM_URL = "http://82.64.88.141:81/cgi-bin/camera?resolution=640&quality=1&Language=0"
@@ -115,8 +116,18 @@ def accident_detection_model(video_path):
     return "No Accident"
 
 
-def send_video_to_gravity_model(video_path):
-    return "hi"
+
+
+def send_video_to_accident_data_labelisation_model(video_path: str):
+    url = "http://ai_model_accident_labelisation:82/labelise_and_estime/"
+    with open(video_path, "rb") as video_file:
+        files = {"video": video_file}
+        response = requests.post(url, files=files)
+        response.raise_for_status()
+        print(response.json())
+        return response.json()
+
+
 # --- Main Loop ---
 print("Starting capture and detection loop...")
 start_time = time.time()
@@ -146,10 +157,9 @@ if __name__ == "__main__":
                 print(f"Result: {result}")
 
                 if result == "Accident Detected":
-                    # Ici, on simulerait l'envoi vers le modèle `gravity_data_labelisation`
-                    print(f"Send {video_path} + metadata to gravity_data_labelisation")
+                    # Ici, on simulerait l'envoi vers le modèle `accident_data_labelisation`
+                    print(f"Send {video_path} + metadata to accident_data_labelisation")
+                    send_video_to_accident_data_labelisation_model(video_path)
             last_video_time = now
 
         time.sleep(INTERVAL)
-
-

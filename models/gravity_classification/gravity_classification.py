@@ -34,4 +34,13 @@ def estimer_gravite(accident: DonneesAccident):
     """
     gravites_possibles = ['indemne', 'Tué(30j)', 'Blessé hosp. plus de 24h', 'Blessé léger']
     gravite = random.choice(gravites_possibles)
+
+    """
+    envoyer à la base de données :
+    faut que j'envoie : 
+    - resultat gravité estimer
+    - DonneesAccident
+    - la video de l'accident
+    --> je crée ma table dans la base de données 
+    """
     return {"gravite_estimee": gravite}

@@ -36,10 +36,11 @@ class DonneesAccident(BaseModel):
 """
 
 
+
 import random
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+import requests
 
 app = FastAPI()
 
@@ -53,10 +54,6 @@ class DonneesAccident(BaseModel):
     type_route: str
 
 def dummy_labelisation_model(video_bytes: bytes) -> DonneesAccident:
-    """
-    Simule le traitement d'une vidéo pour en extraire des données d'accident.
-    (Version fictive pour test)
-    """
     return DonneesAccident(
         nombre_vehicules=random.randint(1, 5),
         vitesse_estimee=round(random.uniform(10, 130), 2),
@@ -69,14 +66,18 @@ def dummy_labelisation_model(video_bytes: bytes) -> DonneesAccident:
 @app.post("/labelise_and_estime/")
 async def labelise_and_estime(video: UploadFile = File(...)):
     contents = await video.read()
-    # Step 1: Labelise accident (dummy)
+
+    # Step 1: Simulate labelisation
     accident_info = dummy_labelisation_model(contents)
 
-    # Step 2: Estimate severity
-    response = client.post("/estimer_gravite", json=accident_info.dict())
-    severity = response.json()
-
-    return {
-        "infos_accident": accident_info.dict(),
-        "gravite_estimee": severity["gravite_estimee"]
-    }
+    # Step 2: Send POST request to ai_model_gravity_classification container
+    try:
+        response = requests.post(
+            "http://ai_model_gravity_classification:81/estimer_gravite",
+            json=accident_info.model_dump()
+        )
+        response.raise_for_status()
+        gravite_estimee = response.json().get("gravite_estimee")
+    except Exception as e:
+        return {"error": f"Failed to contact gravity classification model: {e}"}
+    return { "accident_info": accident_info.model_dump() }

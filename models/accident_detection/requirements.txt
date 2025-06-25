@@ -4,6 +4,7 @@
 pytest
 httpx
 python-multipart
+requests
 
 
 
