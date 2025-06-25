@@ -13,7 +13,7 @@ class Usager(Base):
 
 
     id_accident = Column(BigInteger, index=True)  # accident_id
-    id_usager = Column(String, index=True)  
+    id_usager = Column(BigInteger, index=True)  
     id_vehicule = Column(BigInteger, index=True) 
     num_veh = Column(String) # ?
     place = Column(Integer) #place dans le vehicule ?

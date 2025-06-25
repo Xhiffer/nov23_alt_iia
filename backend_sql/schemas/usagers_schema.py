@@ -3,18 +3,24 @@ from pydantic import BaseModel, ConfigDict
 
 class UsagerBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id_accident: int
-    id_usager: int
-    num_usager: Optional[int] = None
+    id_usager: int  # corrigé
+    id_vehicule: Optional[int] = None
+    num_veh: Optional[str] = None
     place: int
     catu: int
     grav: int
     sexe: int
+    an_nais: Optional[int] = None
     trajet: int
-    secu: Optional[int] = None
+
+    secu1: Optional[int] = None
+    secu2: Optional[int] = None
+    secu3: Optional[int] = None
+
     locp: Optional[int] = None
-    actp: Optional[int] = None
+    actp: Optional[str] = None  # corrigé
     etatp: Optional[int] = None
 
 class UsagerCreate(UsagerBase):
@@ -22,4 +28,3 @@ class UsagerCreate(UsagerBase):
 
 class UsagerRead(UsagerBase):
     id: int
-    model_config = ConfigDict(from_attributes=True)
