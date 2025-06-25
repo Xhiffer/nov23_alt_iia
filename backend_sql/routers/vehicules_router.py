@@ -16,7 +16,7 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/vehicules/img-to-csv/")
+@router.post("/vehicules/csv-to-sql/")
 async def import_csv():
     try:
         logging.info("Starting img-to-csv import process...")

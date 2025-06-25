@@ -30,7 +30,11 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Import all Base models to create tables
-from models.vehicules_model import Base
+from models import Base 
+import models.vehicules_model
+import models.usagers_model
+import models.caract_model
+import models.lieux_model
 
 # Create all tables (checkfirst prevents dropping/recreating)
 Base.metadata.create_all(bind=engine, checkfirst=True)

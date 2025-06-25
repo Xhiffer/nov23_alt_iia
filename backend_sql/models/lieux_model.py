@@ -1,13 +1,15 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from . import Base
+
 
 class Lieu(Base):
     __tablename__ = "lieux"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    id_accident = Column(Integer, index=True) # num_acc
+    id_accident = Column(BigInteger, index=True) 
+ # num_acc
     catr = Column(Integer) #categorie
     voie = Column(String) #voie special ?
     ##### ca m'a l'air chiant a parser // utiliser franchement.  (bis// ter // etc) + A B C ..

@@ -1,12 +1,16 @@
-from sqlalchemy import Column, Integer, String, Float, Date
+from sqlalchemy import Column, Integer, String, Float, Date, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from . import Base
+
 
 class Caract(Base):
     __tablename__ = "caract"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
-    id_accident = Column(Integer, primary_key=True, index=True)
+
+    id_accident = Column(BigInteger, index=True) 
+
     jour = Column(Integer)
     mois = Column(Integer)
     an = Column(String, index=True)                    

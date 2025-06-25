@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy import BigInteger
+from sqlalchemy import Column, Integer, String, BigInteger
 from sqlalchemy.orm import declarative_base
-Base = declarative_base()
+from . import Base
+
+
 
 
 class Vehicule(Base):

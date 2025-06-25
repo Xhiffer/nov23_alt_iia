@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from . import Base
 """
 -1 == no data
 """
@@ -11,9 +11,10 @@ class Usager(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
 
-    id_accident = Column(Integer, index=True)  # accident_id
-    id_usager = Column(String, unique=True)
-    id_vehicule = Column(String)
+
+    id_accident = Column(BigInteger, index=True)  # accident_id
+    id_usager = Column(String, index=True)  
+    id_vehicule = Column(BigInteger, index=True) 
     num_veh = Column(String) # ?
     place = Column(Integer) #place dans le vehicule ?
     catu = Column(Integer) # categorie ? 1) conducteur, 2) passager 3) piéton

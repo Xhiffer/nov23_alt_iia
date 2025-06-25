@@ -85,7 +85,7 @@ if __name__ == "__main__":
             logging.info("Vehicules import process started.")
             print("Vehicules import process started...")
             create_lock_file(LOCK_FILE, sys.argv)
-            import_vehicules()
+            # import_vehicules()
             logging.info("Vehicules import process finished.")
             print("Vehicules have been imported successfully!")
         finally:
