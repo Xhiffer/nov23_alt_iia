@@ -8,5 +8,6 @@ pandas
 alembic
 pytest
 httpx
+python-multipart
 # python-multipart  # Needed if you ever use file uploads or form data
 # loguru  # Optional but better logging experience

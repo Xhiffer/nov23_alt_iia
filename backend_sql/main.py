@@ -13,7 +13,10 @@ from fastapi.responses import JSONResponse
 import subprocess
 import logging
 import os
-
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models.gravites_tags import GraviteTag
+from contextlib import asynccontextmanager
 tags_metadata = [
     {
         "name": "Usagers",
@@ -37,8 +40,25 @@ tags_metadata = [
     }
 ]
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: seed gravite tags
+    tags = ['indemne', 'Tué(30j)', 'Blessé hosp. plus de 24h', 'Blessé léger']
+    db: Session = SessionLocal()
+    try:
+        for tag in tags:
+            if not db.query(GraviteTag).filter(GraviteTag.label == tag).first():
+                db.add(GraviteTag(label=tag))
+        db.commit()
+    finally:
+        db.close()
+
+    yield  # App runs here
+
+    
 # FastAPI app setup
-app = FastAPI(openapi_tags=tags_metadata)
+app = FastAPI(openapi_tags=tags_metadata,lifespan=lifespan)
 
 # Include the router for Vehicules API endpoints
 app.include_router(vehicules_router, tags=["Véhicules"])
@@ -62,3 +82,4 @@ logging.basicConfig(
     level=logging.INFO,  # Log all INFO level messages and higher
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+

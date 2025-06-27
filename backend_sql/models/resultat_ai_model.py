@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String
+from sqlalchemy import Column, Integer, Float, Boolean, String, ForeignKey
 from . import Base
+from sqlalchemy.orm import relationship
 
 class ResultatAi(Base):
     __tablename__ = "resultat_ai"
@@ -12,7 +13,8 @@ class ResultatAi(Base):
     conditions_meteo = Column(String, nullable=False, comment="Conditions météorologiques au moment de l'accident")
     presence_pietons = Column(Boolean, nullable=False, comment="Y avait-il des piétons impliqués ?")
     type_route = Column(String, nullable=False, comment="Type de route (ex: autoroute, départementale, etc.)")
+    video_path = Column(String, nullable=True, comment="Chemin vers la vidéo de l'accident")
 
-    # TODO: Ajouter les champs suivants quand ils seront définis :
-    # video = ...
-    # gravites_tags = ...
+    gravite_tag_id = Column(Integer, ForeignKey("gravite_tag.id"), nullable=True)
+    gravite_tag = relationship("GraviteTag", backref="accidents")
+

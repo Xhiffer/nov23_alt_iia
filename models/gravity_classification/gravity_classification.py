@@ -1,7 +1,8 @@
 import random
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
+import json
 
 app = FastAPI()
 
@@ -14,20 +15,29 @@ class DonneesAccident(BaseModel):
     type_route: str
 
 @app.post("/estimer_gravite")
-def estimer_gravite(accident: DonneesAccident):
+async def estimer_gravite(
+    video: UploadFile = File(...),
+    accident_info: str = Form(...)
+):
+    accident = DonneesAccident.parse_raw(accident_info)
+    video_bytes = await video.read()
+
     gravites_possibles = ['indemne', 'Tué(30j)', 'Blessé hosp. plus de 24h', 'Blessé léger']
     gravite = random.choice(gravites_possibles)
 
-    # Compose data to send to backend API
+    # Prepare payload for backend_sql including gravite
     payload = accident.model_dump()
     payload['gravite_estimee'] = gravite
 
-    # URL of your backend API endpoint (adjust host if needed)
-    backend_url = "http://backend_sql:8000/resultat_ai/"  # or use the container network IP if needed
+    # Prepare multipart/form-data for backend_sql
+    files = {
+        "video": (video.filename, video_bytes, video.content_type),
+        "resultat_ai_data": (None, json.dumps(payload), "application/json")  # <-- matches backend parameter name
+    }
 
-    # Send POST request to backend
-    response = requests.post(backend_url, json=payload)
-    response.raise_for_status()  # Raise error if something went wrong
+    backend_url = "http://backend_sql:8000/resultat_ai/"
+    response = requests.post(backend_url, files=files)
+    response.raise_for_status()
     resultat_ai_response = response.json()
 
     return {
