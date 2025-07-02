@@ -60,4 +60,4 @@ tmp/
 
 backend_sql/postgres-data/
 backend_sql/scripts/csv/
-backend_sql/video/
+backend_sql/videos/
