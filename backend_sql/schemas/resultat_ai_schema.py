@@ -11,11 +11,10 @@ class ResultatAiBase(BaseModel):
     presence_pietons: bool
     type_route: str
     
-    gravite_tag: Optional[GraviteTagRead] = None
 
 
 class ResultatAiCreate(ResultatAiBase):
-    gravite_tag_id: Optional[str] = None
+    gravite_estimee: Optional[str] = None
 
 class ResultatAiRead(ResultatAiBase):
     id: int
