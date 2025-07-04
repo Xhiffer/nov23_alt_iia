@@ -1,0 +1,31 @@
+{% extends "base.html" %} {% block content %}
+
+<div>
+    <div id="resultatAiTable"></div>
+</div>
+
+<script>
+    var table = new Tabulator("#resultatAiTable", {
+        height: "50vh",
+        layout: "fitColumns",
+        ajaxURL: "/ajax/resultats_ai",  // your Flask route
+        progressiveLoad: "scroll",
+        paginationSize: 10,
+        placeholder: "No data available",
+        columns: [
+            { title: "ID", field: "id", width: 70 },
+            { title: "Nombre Véhicules", field: "nombre_vehicules" },
+            { title: "Vitesse Estimée", field: "vitesse_estimee" },
+            { title: "Impact Détecté", field: "impact_detecte" },
+            { title: "Conditions Météo", field: "conditions_meteo" },
+            { title: "Présence Piétons", field: "presence_pietons" },
+            { title: "Type de Route", field: "type_route" },
+            { title: "Gravité Estimée", field: "gravite_tag.label", titleDownload: "Gravité" }, // nested
+        ],
+        ajaxResponse: function(url, params, response){
+            console.log("Data loaded:", response.data);
+            return response;  // Must return an array of row data
+        }
+    });
+    </script>
+{% endblock %}

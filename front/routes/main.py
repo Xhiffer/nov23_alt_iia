@@ -1,5 +1,4 @@
 from flask import Blueprint, render_template
-from flask import render_template
 
 main = Blueprint(
     "main",
@@ -16,9 +15,7 @@ def home():
 @main.route("/about")
 def about():
     return render_template("about.html")
-@main.route("/blank")
-def blank():
-    return render_template("blank.html")  # Don't keep the stray "return 'hi'"
+
 
 
 
