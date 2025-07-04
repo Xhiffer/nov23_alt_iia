@@ -91,3 +91,11 @@ def delete_resultat_ai(db: Session, resultat_ai_id: int):
     except exc.SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error deleting Resultat AI: {str(e)}")
+    
+    
+def get_paginated(db: Session, offset: int = 0, limit: int = 10):
+
+    return db.query(ResultatAi).offset(offset).limit(limit).all()
+
+def count_all(db: Session):
+    return db.query(ResultatAi).count()

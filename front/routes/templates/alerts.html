@@ -1,11 +1,14 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+{% block content %}
 
 <div>
     <div id="resultatAiTable"></div>
 </div>
 
 <script>
-    var table = new Tabulator("#resultatAiTable", {
+window.addEventListener("DOMContentLoaded", () => {
+
+    const table = new Tabulator("#resultatAiTable", {
         height: "50vh",
         layout: "fitColumns",
         ajaxURL: "/ajax/resultats_ai",  // your Flask route
@@ -20,12 +23,27 @@
             { title: "Conditions Météo", field: "conditions_meteo" },
             { title: "Présence Piétons", field: "presence_pietons" },
             { title: "Type de Route", field: "type_route" },
-            { title: "Gravité Estimée", field: "gravite_tag.label", titleDownload: "Gravité" }, // nested
+            { title: "Gravité Estimée", field: "gravite_tag.label", titleDownload: "Gravité" },
         ],
         ajaxResponse: function(url, params, response){
             console.log("Data loaded:", response.data);
-            return response;  // Must return an array of row data
+            return response;
         }
     });
-    </script>
+
+    // ✅ Attach row double click with Tabulator's event binding
+    table.on("rowDblClick", function(e, row) {
+        console.log("Double-click detected!", row.getData());
+        const id = row.getData().id;
+        window.location.href = `/alert?id=${id}`;
+    });
+
+    // ✅ Debugging click to confirm interaction works
+    table.on("rowClick", function(e, row) {
+        console.log("Row clicked", row.getData());
+    });
+
+});
+</script>
+
 {% endblock %}

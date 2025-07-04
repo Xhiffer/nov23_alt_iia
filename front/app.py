@@ -1,11 +1,11 @@
 from flask import Flask
 from routes.main import main  # correct import
-from routes.alerts import alerts 
+from routes.alerts import bp_alerts 
 app = Flask(__name__)
 
 # Register blueprint
 app.register_blueprint(main)
-app.register_blueprint(alerts)
+app.register_blueprint(bp_alerts)
 
 
 if __name__ == "__main__":

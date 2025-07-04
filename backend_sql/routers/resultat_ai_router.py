@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import controllers.resultat_ai_controller as resultat_ai_ctrl
@@ -49,3 +49,21 @@ def update_resultat_ai(resultat_ai_id: int, resultat_ai_data: ResultatAiCreate, 
 @router.delete("/resultat_ai/{resultat_ai_id}")
 def delete_resultat_ai(resultat_ai_id: int, db: Session = Depends(get_db)):
     return resultat_ai_ctrl.delete_resultat_ai(db, resultat_ai_id)
+
+
+@router.get("/resultat_ai", response_model=dict)
+def get_resultat_ai_list(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    offset = (page - 1) * per_page
+    total_count = resultat_ai_ctrl.count_all(db)  # You’ll need to implement this in the controller
+    items = resultat_ai_ctrl.get_paginated(db, offset=offset, limit=per_page)
+    
+    return {
+        "count": total_count,
+        "page": page,
+        "per_page": per_page,
+        "items": [ResultatAiRead.from_orm(obj) for obj in items]
+    }
