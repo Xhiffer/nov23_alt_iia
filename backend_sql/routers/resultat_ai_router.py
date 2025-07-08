@@ -5,7 +5,9 @@ import controllers.resultat_ai_controller as resultat_ai_ctrl
 from schemas.resultat_ai_schema import ResultatAiCreate, ResultatAiRead
 import json
 from typing import Optional
-
+from fastapi.responses import StreamingResponse
+import io
+import os
 router = APIRouter()
 
 def get_db():
@@ -67,3 +69,72 @@ def get_resultat_ai_list(
         "per_page": per_page,
         "items": [ResultatAiRead.from_orm(obj) for obj in items]
     }
+
+
+
+
+
+
+from fastapi import Request, HTTPException
+from fastapi.responses import StreamingResponse, Response
+import os
+
+@router.get("/resultat_ai/{resultat_ai_id}/video")
+def get_resultat_ai_video(request: Request, resultat_ai_id: int, db: Session = Depends(get_db)):
+    resultat_ai = resultat_ai_ctrl.get_resultat_ai(db, resultat_ai_id)
+    if not resultat_ai or not resultat_ai.video_path:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    video_path = resultat_ai.video_path
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video file not found on disk")
+
+    file_size = os.path.getsize(video_path)
+    range_header = request.headers.get('range')
+
+    if range_header is None:
+        # No Range header — return entire file with 200 status
+        return StreamingResponse(open(video_path, "rb"), media_type="video/mp4")
+
+    # Parse range header, e.g., "bytes=0-1023"
+    bytes_range = range_header.strip().lower().replace("bytes=", "").split("-")
+    try:
+        start = int(bytes_range[0])
+        end = int(bytes_range[1]) if bytes_range[1] else file_size - 1
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Range header")
+
+    if start >= file_size or end >= file_size or start > end:
+        raise HTTPException(status_code=416, detail="Requested Range Not Satisfiable")
+
+    chunk_size = end - start + 1
+
+    def iterfile():
+        with open(video_path, "rb") as f:
+            f.seek(start)
+            bytes_left = chunk_size
+            while bytes_left > 0:
+                read_length = min(4096, bytes_left)
+                data = f.read(read_length)
+                if not data:
+                    break
+                bytes_left -= len(data)
+                yield data
+
+    headers = {
+        "Content-Range": f"bytes {start}-{end}/{file_size}",
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(chunk_size),
+        "Content-Type": "video/mp4",
+    }
+
+    return StreamingResponse(iterfile(), status_code=206, headers=headers)
+
+
+
+from fastapi.responses import FileResponse
+
+@router.get("/test_video")
+def test_video():
+    path = "videos/video_6d9c1f9e50214a249f797e8ec9ea9e98.mp4"  # put here a static file you verified
+    return FileResponse(path, media_type="video/mp4")

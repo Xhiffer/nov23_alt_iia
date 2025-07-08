@@ -2,6 +2,12 @@
 
 <div>
     <p>Alert ID: {{ alert_id }}</p>
+    <video controls width="640">
+        <source src="http://localhost:8000/resultat_ai/{{ alert_id }}/video" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+
 </div>
 
 {% endblock %}

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models.gravites_tags import GraviteTag
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 tags_metadata = [
     {
         "name": "Usagers",
@@ -41,15 +42,22 @@ tags_metadata = [
 ]
 
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: seed gravite tags
-    tags = ['indemne', 'Tué(30j)', 'Blessé hosp. plus de 24h', 'Blessé léger']
+    tags_with_colors = {
+        'indemne': '#4CAF50',
+        'Tué(30j)': '#F44336',
+        'Blessé hosp. plus de 24h': '#FF9800',
+        'Blessé léger': '#FFEB3B',
+    }
+
     db: Session = SessionLocal()
     try:
-        for tag in tags:
-            if not db.query(GraviteTag).filter(GraviteTag.label == tag).first():
-                db.add(GraviteTag(label=tag))
+        for label, color in tags_with_colors.items():
+            tag = db.query(GraviteTag).filter(GraviteTag.label == label).first()
+            if not tag:
+                db.add(GraviteTag(label=label, color=color))
         db.commit()
     finally:
         db.close()
@@ -59,7 +67,13 @@ async def lifespan(app: FastAPI):
     
 # FastAPI app setup
 app = FastAPI(openapi_tags=tags_metadata,lifespan=lifespan)
-
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["http://frontend:5010"],  # your frontend origin here,  # adjust with your frontend URL(s)
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 # Include the router for Vehicules API endpoints
 app.include_router(vehicules_router, tags=["Véhicules"])
 app.include_router(usagers_router, tags=["Usagers"])
