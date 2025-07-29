@@ -39,6 +39,11 @@ def get_lieu(lieu_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Lieu not found")
     return lieu
 
+from typing import List
+
+@router.get("/lieux", response_model=List[LieuRead])
+def get_all_lieux(db: Session = Depends(get_db)):
+    return lieux_ctrl.get_all_lieux(db)
 
 @router.post("/lieux/", response_model=LieuRead)
 def create_lieu(

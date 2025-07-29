@@ -5,6 +5,7 @@ from sqlalchemy import exc
 from models.lieux_model import Lieu
 from database import SessionLocal
 from schemas.lieux_schema import LieuCreate, LieuRead
+from typing import List
 
 # Dependency to get DB session
 def get_db():
@@ -20,6 +21,10 @@ def get_lieu(db: Session, lieu_id: int) -> LieuRead:
     if lieu is None:
         raise HTTPException(status_code=404, detail="Lieu not found")
     return lieu
+
+def get_all_lieux(db: Session) -> List[LieuRead]:
+    lieux = db.query(Lieu).all()
+    return lieux
 
 # POST: Create new Lieu
 def create_lieu(lieu_data: LieuCreate, db: Session) -> LieuRead:

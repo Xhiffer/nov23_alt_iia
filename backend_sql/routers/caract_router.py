@@ -3,6 +3,7 @@ import os
 import subprocess
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 
 from database import SessionLocal
 import controllers.caract_controller as caract_ctrl
@@ -39,6 +40,9 @@ def get_caract(caract_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Caract not found")
     return caract
 
+@router.get("/caracts", response_model=List[CaractRead])
+def get_all_caracts(db: Session = Depends(get_db)):
+    return caract_ctrl.get_all_caracts(db)
 
 @router.post("/caracts/", response_model=CaractRead)
 def create_caract(

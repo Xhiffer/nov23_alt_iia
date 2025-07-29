@@ -5,6 +5,7 @@ from sqlalchemy import exc
 from models.vehicules_model import Vehicule
 from database import SessionLocal
 from schemas.vehicules_schema import VehiculeCreate, VehiculeRead
+from typing import List
 
 # Dependency to get DB session
 def get_db():
@@ -20,6 +21,10 @@ def get_vehicule(db: Session, vehicule_id: int) -> VehiculeRead:
     if vehicule is None:
         raise HTTPException(status_code=404, detail="Vehicule not found")
     return vehicule
+
+def get_all_vehicules(db: Session) -> List[VehiculeRead]:
+    vehicules = db.query(Vehicule).all()
+    return vehicules
 
 # POST: Create new Vehicule
 def create_vehicule(

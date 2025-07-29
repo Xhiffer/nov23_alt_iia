@@ -5,6 +5,7 @@ from sqlalchemy import exc
 from models.caract_model import Caract
 from database import SessionLocal
 from schemas.caract_schema import CaractCreate, CaractRead
+from typing import List
 
 # Dependency to get DB session
 def get_db():
@@ -20,6 +21,10 @@ def get_caract(db: Session, caract_id: int) -> CaractRead:
     if caract is None:
         raise HTTPException(status_code=404, detail="Caract not found")
     return caract
+
+def get_all_caracts(db: Session) -> List[CaractRead]:
+    caracts = db.query(Caract).all()
+    return caracts
 
 # POST: Create new Caract
 def create_caract(caract_data: CaractCreate, db: Session) -> CaractRead:

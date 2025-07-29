@@ -5,6 +5,7 @@ from sqlalchemy import exc
 from models.usagers_model import Usager
 from database import SessionLocal
 from schemas.usagers_schema import UsagerCreate, UsagerRead
+from typing import List
 
 # Dependency to get DB session
 def get_db():
@@ -20,6 +21,10 @@ def get_usager(db: Session, usager_id: int) -> UsagerRead:
     if usager is None:
         raise HTTPException(status_code=404, detail="Usager not found")
     return usager
+
+def get_all_usagers(db: Session) -> List[UsagerRead]:
+    usagers = db.query(Usager).all()
+    return usagers
 
 # POST: Create new Usager
 def create_usager(usager_data: UsagerCreate, db: Session) -> UsagerRead:

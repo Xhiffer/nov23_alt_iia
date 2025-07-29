@@ -31,7 +31,6 @@ async def import_csv():
         logging.error(f"Unexpected error: {str(e)}")
         return {"error": f"Unexpected error: {str(e)}"}
 
-
 @router.get("/usagers/{usager_id}", response_model=UsagerRead)
 def get_usager(usager_id: int, db: Session = Depends(get_db)):
     usager = usager_ctrl.get_usager(db, usager_id)
@@ -39,6 +38,11 @@ def get_usager(usager_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Usager not found")
     return usager
 
+from typing import List
+
+@router.get("/usagers", response_model=List[UsagerRead])
+def get_all_usagers(db: Session = Depends(get_db)):
+    return usager_ctrl.get_all_usagers(db)
 
 @router.post("/usagers/", response_model=UsagerRead)
 def create_usager(
@@ -55,7 +59,6 @@ def update_usager(
     db: Session = Depends(get_db),
 ):
     return usager_ctrl.update_usager(usager_id, usager_data, db)
-
 
 @router.delete("/usagers/{usager_id}")
 def delete_usager(usager_id: int, db: Session = Depends(get_db)):

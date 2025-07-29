@@ -35,6 +35,12 @@ def get_vehicule(vehicule_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Vehicule not found")
     return vehicule
 
+from typing import List
+
+@router.get("/vehicules", response_model=List[VehiculeRead])
+def get_all_vehicules(db: Session = Depends(get_db)):
+    return vehicule_ctrl.get_all_vehicules(db)
+
 @router.post("/vehicules/", response_model=VehiculeRead)
 def create_vehicule(
     vehicule_data: VehiculeCreate,
