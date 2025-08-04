@@ -71,7 +71,6 @@ services:
   ai_model_accident_labelisation:
     build:
       context:  ./models/accident_data_labelisation
-    
     container_name: ai_model_accident_labelisation
     volumes:
       - ./models/accident_data_labelisation:/app
@@ -84,16 +83,159 @@ services:
     restart: always
 
   frontend:
-      build:
-        context: ./front
-      container_name: frontend
-      volumes:
-        - ./front:/app
-      ports:
-        - "5010:5010"
-      networks:
-        - dbnet
-      restart: always
+    build:
+      context: ./front
+    container_name: frontend
+    volumes:
+      - ./front:/app
+    ports:
+      - "5010:5010"
+    networks:
+      - dbnet
+    restart: always
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: server /data
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+    networks:
+      - dbnet
+    restart: always
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio123
+    depends_on:
+      - db
+      - minio
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://db:db@db:5432/db
+      --default-artifact-root s3://mlflow/
+      --host 0.0.0.0
+    networks:
+      - dbnet
+    restart: always
+
+volumes:
+  minio-data:
 
 networks:
   dbnet:
+
+
+
+# version: "3.9"
+
+# services:
+#   app:
+#     build:
+#       context:  ./backend_sql
+#     container_name: backend_sql
+#     volumes:
+#       - ./backend_sql:/app
+#     ports:
+#       - "8000:8000"
+#     networks:
+#       - dbnet
+#     depends_on:
+#       - db
+#     restart: always
+
+#   db:
+#     image: postgres:16.1-alpine3.19
+#     environment:
+#       POSTGRES_USER: db
+#       POSTGRES_PASSWORD: db
+#       POSTGRES_DB: db
+#     volumes:
+#       - ./backend_sql/postgres-data:/var/lib/postgresql/data
+#     networks:
+#       - dbnet
+#     restart: always
+
+#   phppgadmin:
+#     image: dpage/pgadmin4
+#     environment:
+#       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_USER}
+#       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+#     ports:
+#       - "8084:80"
+#     depends_on:
+#       - db
+#     restart: always
+#     networks:
+#       - dbnet
+
+#   ai_model_gravity_classification:
+#     build:
+#       context:  ./models/gravity_classification
+#     container_name: ai_model_gravity_classification
+#     volumes:
+#       - ./models/gravity_classification:/app
+#     ports:
+#       - "81:81"
+#     networks:
+#       - dbnet
+#     depends_on:
+#       - db
+#     restart: always
+
+#   ai_model_accident_detection:
+#     build:
+#       context:  ./models/accident_detection
+#     container_name: ai_model_accident_detection
+#     volumes:
+#       - ./models/accident_detection:/app
+#     ports:
+#       - "83:83"
+#     networks:
+#       - dbnet
+#     depends_on:
+#       - db
+#     restart: always
+
+#   ai_model_accident_labelisation:
+#     build:
+#       context:  ./models/accident_data_labelisation
+    
+#     container_name: ai_model_accident_labelisation
+#     volumes:
+#       - ./models/accident_data_labelisation:/app
+#     ports:
+#       - "82:82"
+#     networks:
+#       - dbnet
+#     depends_on:
+#       - db
+#     restart: always
+
+#   frontend:
+#       build:
+#         context: ./front
+#       container_name: frontend
+#       volumes:
+#         - ./front:/app
+#       ports:
+#         - "5010:5010"
+#       networks:
+#         - dbnet
+#       restart: always
+
+# networks:
+#   dbnet:
