@@ -23,6 +23,8 @@ class LieuBase(BaseModel):
     infra: Optional[int] = None
     situ: Optional[int] = None
     vma: Optional[int] = None
+    date_ajout: str = None
+
 
 
 class LieuCreate(LieuBase):

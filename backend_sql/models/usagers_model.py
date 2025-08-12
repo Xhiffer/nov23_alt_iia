@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, BigInteger
+from sqlalchemy import Column, Integer, String, Float, DateTime, BigInteger
+from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import Base
@@ -42,3 +43,4 @@ class Usager(Base):
     locp = Column(Integer) # localisation du pieton
     actp = Column(String) #activité du pieton
     etatp = Column(Integer) #etat du pieton 1 - seul 2- accompagné 3- en groupe
+    date_ajout = Column(DateTime, default=datetime.now, nullable=False)

@@ -20,6 +20,7 @@ class CaractBase(BaseModel):
     adr: Optional[str] = None
     lat: Optional[float] = None
     long: Optional[float] = None
+    date_ajout: str = None
 
 
 class CaractCreate(CaractBase):

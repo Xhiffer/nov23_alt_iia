@@ -15,6 +15,8 @@ class VehiculeBase(BaseModel):
     manv: int
     motor: int
     occutc: Optional[int] = None
+    date_ajout: str = None
+
 
 class VehiculeCreate(VehiculeBase):
     pass

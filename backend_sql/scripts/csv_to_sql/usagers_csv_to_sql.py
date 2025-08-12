@@ -62,7 +62,9 @@ def import_usagers():
                 secu3=None if isna(row.get('secu3')) else int(row.get('secu3')),
                 locp=None if isna(row.get('locp')) else int(row.get('locp')),
                 actp=row.get('actp'),
-                etatp=None if isna(row.get('etatp')) else int(row.get('etatp'))
+                etatp=None if isna(row.get('etatp')) else int(row.get('etatp')),
+                date_ajout = pd.to_datetime('now').strftime('%Y-%m-%d %H:%M:%S'),
+
             )
             db.add(usager)
             db.commit()

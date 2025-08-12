@@ -22,6 +22,8 @@ class UsagerBase(BaseModel):
     locp: Optional[int] = None
     actp: Optional[str] = None  # corrigé
     etatp: Optional[int] = None
+    date_ajout: str = None
+
 
 class UsagerCreate(UsagerBase):
     pass

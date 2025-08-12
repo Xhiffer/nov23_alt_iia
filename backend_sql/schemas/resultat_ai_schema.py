@@ -10,6 +10,8 @@ class ResultatAiBase(BaseModel):
     conditions_meteo: str
     presence_pietons: bool
     type_route: str
+    date_ajout: str = None
+
     
 
 

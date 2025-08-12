@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, BigInteger
+from sqlalchemy import Column, Integer, String, Float, DateTime, BigInteger
+from datetime import datetime
 from sqlalchemy.orm import declarative_base
 from . import Base
 
@@ -20,3 +21,4 @@ class Vehicule(Base):
     manv = Column(Integer) #manoeuvre principale avant accident - OK
     motor = Column(Integer) #type de motorisation - ok (mais je pense on le garde pas)
     occutc = Column(Integer) #Vide --> pas besoin 
+    date_ajout = Column(DateTime, default=datetime.now, nullable=False)

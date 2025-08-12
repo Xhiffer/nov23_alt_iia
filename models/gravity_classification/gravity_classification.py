@@ -3,7 +3,8 @@ import requests
 from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
 import json
-
+from pydantic import BaseModel, Field
+from datetime import datetime
 app = FastAPI()
 
 class DonneesAccident(BaseModel):
@@ -13,6 +14,7 @@ class DonneesAccident(BaseModel):
     conditions_meteo: str
     presence_pietons: bool
     type_route: str
+    date_ajout: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 @app.post("/estimer_gravite")
 async def estimer_gravite(

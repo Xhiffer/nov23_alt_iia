@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, BigInteger,Boolean,ForeignKey
+from datetime import datetime
 from . import Base
 from sqlalchemy.orm import relationship
 
@@ -17,4 +18,5 @@ class ResultatAi(Base):
 
     gravite_tag_id = Column(Integer, ForeignKey("gravite_tag.id"), nullable=True)
     gravite_tag = relationship("GraviteTag", backref="accidents")
+    date_ajout = Column(DateTime, default=datetime.now, nullable=False)
 

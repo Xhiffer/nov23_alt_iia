@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, BigInteger
+from sqlalchemy import Column, Integer, String, Float, DateTime, BigInteger
+from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 
 from . import Base
@@ -29,4 +30,5 @@ class Lieu(Base):
     infra = Column(Integer) #amenagement infrastructure
     situ = Column(Integer) #situation de l'accident
     vma = Column(Integer) #vitesse maximale autorisee ?
+    date_ajout = Column(DateTime, default=datetime.now, nullable=False)
     
