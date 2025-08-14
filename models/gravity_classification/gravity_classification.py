@@ -14,7 +14,6 @@ class DonneesAccident(BaseModel):
     conditions_meteo: str
     presence_pietons: bool
     type_route: str
-    date_ajout: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 @app.post("/estimer_gravite")
 async def estimer_gravite(

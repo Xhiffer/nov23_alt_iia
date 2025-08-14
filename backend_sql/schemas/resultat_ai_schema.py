@@ -1,6 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 from schemas.gravites_tags_schema import GraviteTagRead
+from datetime import datetime
+
 class ResultatAiBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -10,7 +12,6 @@ class ResultatAiBase(BaseModel):
     conditions_meteo: str
     presence_pietons: bool
     type_route: str
-    date_ajout: str = None
 
     
 
@@ -22,3 +23,4 @@ class ResultatAiRead(ResultatAiBase):
     id: int
     gravite_tag: Optional[GraviteTagRead] = None
     video_path: str
+    date_ajout: datetime

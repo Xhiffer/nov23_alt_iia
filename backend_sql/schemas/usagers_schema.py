@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 
 class UsagerBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -22,7 +23,6 @@ class UsagerBase(BaseModel):
     locp: Optional[int] = None
     actp: Optional[str] = None  # corrigé
     etatp: Optional[int] = None
-    date_ajout: str = None
 
 
 class UsagerCreate(UsagerBase):
@@ -30,3 +30,4 @@ class UsagerCreate(UsagerBase):
 
 class UsagerRead(UsagerBase):
     id: int
+    date_ajout: datetime

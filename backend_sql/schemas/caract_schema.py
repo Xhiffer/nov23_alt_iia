@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 
 
 class CaractBase(BaseModel):
@@ -20,7 +21,7 @@ class CaractBase(BaseModel):
     adr: Optional[str] = None
     lat: Optional[float] = None
     long: Optional[float] = None
-    date_ajout: str = None
+    
 
 
 class CaractCreate(CaractBase):
@@ -29,4 +30,4 @@ class CaractCreate(CaractBase):
 
 class CaractRead(CaractBase):
     id: int
-    model_config = ConfigDict(from_attributes=True)
+    date_ajout: datetime

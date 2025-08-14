@@ -68,6 +68,7 @@ def import_caract():
                 adr = None if isna(row.get('adr')) else str(row.get('adr')),
                 lat = safe_float(row.get('lat')),
                 long = safe_float(row.get('long')),
+
             )
             db.add(caract)
             db.commit()

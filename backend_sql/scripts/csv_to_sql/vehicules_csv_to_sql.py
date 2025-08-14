@@ -60,7 +60,6 @@ def import_vehicules():
                 manv = row.get('manv'),
                 motor = row.get('motor'),
                 occutc = None if isna(row.get('occutc')) else int(row.get('occutc')),
-                date_ajout = pd.to_datetime('now').strftime('%Y-%m-%d %H:%M:%S'),
 
             )
             db.add(vehicule)

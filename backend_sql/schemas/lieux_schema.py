@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 
 
 class LieuBase(BaseModel):
@@ -23,7 +24,6 @@ class LieuBase(BaseModel):
     infra: Optional[int] = None
     situ: Optional[int] = None
     vma: Optional[int] = None
-    date_ajout: str = None
 
 
 
@@ -33,4 +33,4 @@ class LieuCreate(LieuBase):
 
 class LieuRead(LieuBase):
     id: int
-    model_config = ConfigDict(from_attributes=True)
+    date_ajout: datetime

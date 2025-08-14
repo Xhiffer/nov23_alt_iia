@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,7 +16,7 @@ class VehiculeBase(BaseModel):
     manv: int
     motor: int
     occutc: Optional[int] = None
-    date_ajout: str = None
+
 
 
 class VehiculeCreate(VehiculeBase):
@@ -23,5 +24,4 @@ class VehiculeCreate(VehiculeBase):
 
 class VehiculeRead(VehiculeBase):
     id: int
-
-    model_config = ConfigDict(from_attributes=True)
+    date_ajout: datetime

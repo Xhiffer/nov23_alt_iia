@@ -61,7 +61,7 @@ def import_lieux():
                 infra=None if isna(row.get('infra')) else int(row.get('infra')),
                 situ=None if isna(row.get('situ')) else int(row.get('situ')),
                 vma=None if isna(row.get('vma')) else int(row.get('vma')),
-                date_ajout = pd.to_datetime('now').strftime('%Y-%m-%d %H:%M:%S'),
+
 
             )
             db.add(lieu)
