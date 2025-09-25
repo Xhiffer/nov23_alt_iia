@@ -20,14 +20,14 @@ def get_db():
         db.close()
 
 # Import CSV vers SQL (facultatif)
-@router.post("/accidents/csv-to-sql/")
+@router.post("/accidents/raw-to-filtered/")
 async def import_csv():
     try:
-        logging.info("Starting accidents csv-to-sql import process...")
-        script_path = os.path.join("scripts", "csv_to_sql", "accident_csv_to_sql.py")
+        logging.info("Starting accidents raw-to-filtered import process...")
+        script_path = os.path.join("scripts", "raw_to_filtered", "accident_raw_to_filtered.py")
         subprocess.Popen(["python", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info("Accidents csv-to-sql import process started successfully.")
-        return {"message": "Accidents csv-to-sql import started successfully!"}
+        logging.info("Accidents raw-to-filtered import process started successfully.")
+        return {"message": "Accidents raw-to-filtered import started successfully!"}
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
         return {"error": f"Unexpected error: {str(e)}"}

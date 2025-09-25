@@ -7,7 +7,7 @@ from routers.lieux_router import router as lieux_router
 from routers.caract_router import router as caract_router
 
 from routers.resultat_ai_router import router as ai_results_router
-
+from routers.ai_training_model_data_router import router as ai_training_model_data_router
 
 from fastapi.responses import JSONResponse
 import subprocess
@@ -40,8 +40,6 @@ tags_metadata = [
         "description": "résultat des différents mondel d'ia."
     }
 ]
-
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -80,6 +78,7 @@ app.include_router(usagers_router, tags=["Usagers"])
 app.include_router(lieux_router, tags=["Lieux"])
 app.include_router(caract_router, tags=["Caractéristiques"])
 app.include_router(ai_results_router, tags=["AiResults"])
+app.include_router(ai_training_model_data_router, tags=["AiTrainingModelData"])
 
 
 

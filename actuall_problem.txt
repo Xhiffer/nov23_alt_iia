@@ -1,0 +1,1 @@
+lancé les fonctions pour prendre les infos de ma db dans le script aitraining

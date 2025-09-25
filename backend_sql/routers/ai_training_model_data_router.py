@@ -29,7 +29,7 @@ def get_db():
 async def import_csv():
     try:
         logging.info("Starting AITrainingModelData csv-to-sql import process...")
-        script_path = os.path.join("scripts", "csv_to_sql", "ai_training_model_data_csv_to_sql.py")
+        script_path = os.path.join("scripts", "filtre_data.py")
         subprocess.Popen(["python", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         logging.info("AITrainingModelData csv-to-sql import process started successfully.")
         return {"message": "AITrainingModelData csv-to-sql import started successfully!"}

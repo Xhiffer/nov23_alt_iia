@@ -37,6 +37,7 @@ import models.caract_model
 import models.lieux_model
 import models.gravites_tags
 import models.resultat_ai_model
+import models.ai_training_model_data_model
 
 
 
