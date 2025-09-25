@@ -48,8 +48,9 @@ services:
   phppgadmin:
     image: dpage/pgadmin4
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_USER}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+
+      PGADMIN_DEFAULT_PASSWORD: supersecret
     ports:
       - "8084:80"
     depends_on:

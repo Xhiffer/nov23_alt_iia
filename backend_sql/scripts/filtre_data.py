@@ -3,6 +3,8 @@
 import requests
 from typing import List, Dict, Union
 
+from tomlkit import datetime
+
 def fetch_api_data(base_url: str, table_name: str) -> Union[List[Dict], None]:
     """
     Fetches data from a FastAPI endpoint like http://localhost:8000/{table_name}
@@ -325,3 +327,120 @@ merged_df = pd.merge(
 merged_df = pd.merge(merged_df, df_lieux_duplicates, on='id_accident', how='inner')
 merged_df = pd.merge(merged_df, df_caract, on='id_accident', how='inner')
 
+
+
+
+
+import sys
+import os
+import logging
+import pandas as pd
+from sqlalchemy.orm import Session
+from pandas import isna
+
+# Project imports
+sys.path.append("/app")
+from database import SessionLocal
+from models.ai_training_model_data_model import AITrainingModelData  # adjust path
+from scripts.extensions_scripts import check_lock_file, create_lock_file, remove_lock_file
+
+# Logging setup
+log_folder = "logs"
+os.makedirs(log_folder, exist_ok=True)
+
+logging.basicConfig(
+    filename=os.path.join(log_folder, 'import_ai_training_data.log'),
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def import_ai_training_data():
+    try:
+        df = merged_df
+        db = next(get_db())
+    except Exception as e:
+        logging.error(f"Error reading CSV file: {e}")
+        return
+    for index, row in df.iterrows():
+        try:
+            record = AITrainingModelData(
+                id_accident=int(row.get('id_accident')) if not isna(row.get('id_accident')) else None,
+                id_usager=None if isna(row.get('id_usager')) else int(row.get('id_usager')),
+                id_vehicule=None if isna(row.get('id_vehicule')) else int(row.get('id_vehicule')),
+
+                grav=None if isna(row.get('grav')) else int(row.get('grav')),
+                sexe=None if isna(row.get('sexe')) else int(row.get('sexe')),
+                an_nais=None if isna(row.get('an_nais')) else int(row.get('an_nais')),
+                locp=None if isna(row.get('locp')) else int(row.get('locp')),
+                n_passager=None if isna(row.get('n_passager')) else int(row.get('n_passager')),
+                n_pieton=None if isna(row.get('n_pieton')) else int(row.get('n_pieton')),
+                senc=None if isna(row.get('senc')) else int(row.get('senc')),
+                catv=None if isna(row.get('catv')) else int(row.get('catv')),
+                obs=None if isna(row.get('obs')) else int(row.get('obs')),
+                obsm=None if isna(row.get('obsm')) else int(row.get('obsm')),
+                choc=None if isna(row.get('choc')) else int(row.get('choc')),
+                manv=None if isna(row.get('manv')) else int(row.get('manv')),
+                motor=None if isna(row.get('motor')) else int(row.get('motor')),
+
+                catr=None if isna(row.get('catr')) else int(row.get('catr')),
+                circ=None if isna(row.get('circ')) else int(row.get('circ')),
+                vosp=None if isna(row.get('vosp')) else int(row.get('vosp')),
+                prof=None if isna(row.get('prof')) else int(row.get('prof')),
+                pr=None if isna(row.get('pr')) else str(row.get('pr')),
+                pr1=None if isna(row.get('pr1')) else str(row.get('pr1')),
+                plan=None if isna(row.get('plan')) else int(row.get('plan')),
+                larrout=None if isna(row.get('larrout')) else int(row.get('larrout')),
+                surf=None if isna(row.get('surf')) else int(row.get('surf')),
+                infra=None if isna(row.get('infra')) else int(row.get('infra')),
+                situ=None if isna(row.get('situ')) else int(row.get('situ')),
+                vma=None if isna(row.get('vma')) else int(row.get('vma')),
+                jour=None if isna(row.get('jour')) else int(row.get('jour')),
+                mois=None if isna(row.get('mois')) else int(row.get('mois')),
+                an=None if isna(row.get('an')) else int(row.get('an')),
+                lum=None if isna(row.get('lum')) else int(row.get('lum')),
+                dep=None if isna(row.get('dep')) else str(row.get('dep')),
+                agg=None if isna(row.get('agg')) else int(row.get('agg')),
+                int_=None if isna(row.get('int_')) else int(row.get('int_')),
+                atm=None if isna(row.get('atm')) else int(row.get('atm')),
+                col=None if isna(row.get('col')) else int(row.get('col')),
+                lat=None if isna(row.get('lat')) else float(row.get('lat')),
+                long=None if isna(row.get('long')) else float(row.get('long')),
+                hrmn_scaled=None if isna(row.get('hrmn_scaled')) else float(row.get('hrmn_scaled')),
+                date_ajout=datetime.now()
+            )
+
+            db.add(record)
+            db.commit()
+        except Exception as e:
+            logging.error(f"Error processing row {index}: {e}")
+            db.rollback()
+            continue
+
+    try:
+        db.commit()
+        logging.info("All AI training data successfully committed.")
+    except Exception as e:
+        logging.error(f"Error committing final batch: {e}")
+        db.rollback()
+
+if __name__ == "__main__":
+    LOCK_FILE = "scripts/import_ai_training_data.lock"
+    if check_lock_file(LOCK_FILE):
+        print("Another instance is already running. Exiting.")
+    else:
+        try:
+            logging.info("AI Training Data import started.")
+            print("AI Training Data import started...")
+            create_lock_file(LOCK_FILE, sys.argv)
+            import_ai_training_data()
+            logging.info("AI Training Data import finished.")
+            print("AI Training Data imported successfully!")
+        finally:
+            remove_lock_file(LOCK_FILE)
