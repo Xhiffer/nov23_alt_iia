@@ -2,6 +2,7 @@
 
 import sys
 import os
+import traceback
 import logging
 
 # Logging setup
@@ -19,7 +20,7 @@ try:
 
     # Project imports
     sys.path.append("/app")
-    
+
     import requests
     from typing import List, Dict, Union
     import unicodedata
@@ -29,34 +30,29 @@ try:
     from pandas import isna
     from database import SessionLocal
     from models.ai_training_model_data_model import AITrainingModelData  # adjust path
-    from routers.caract_router import get_all_accidents
+    from routers.caract_router import get_all_caracts
+    from routers.lieux_router import get_all_lieux
+    from routers.usagers_router import get_all_usagers
+    from routers.vehicules_router import get_all_vehicules
     from scripts.extensions_scripts import check_lock_file, create_lock_file, remove_lock_file
+    import time
+
     ##
 
-    def fetch_api_data(base_url: str, table_name: str) -> Union[List[Dict], None]:
-        """
-        Fetches data from a FastAPI endpoint like http://localhost:8000/{table_name}
+    db = SessionLocal()
 
-        Args:
-            base_url (str): Base URL of the API, e.g., "http://localhost:8000"
-            table_name (str): The name of the endpoint table, e.g., "caracts"
-
-        Returns:
-            List of dicts if successful, None otherwise
-        """
-        url = f"{base_url.rstrip('/')}/{table_name.lstrip('/')}"
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            print(f"Error fetching {table_name} from {url}: {e}")
-            return None
-
-
-
-
-
+    """
+    while 
+    import_caract.lock
+    import_lieux.lock
+    import_usagers.lock
+    import_vehicules.lock
+    wait
+    # """
+    while check_lock_file("scripts/import_caract.lock") or check_lock_file("scripts/import_lieux.lock") or check_lock_file("scripts/import_usagers.lock") or check_lock_file("scripts/import_vehicules.lock"):
+        logging.info("Waiting for other imports to finish...")
+        print("Waiting for other imports to finish...")
+        time.sleep(10)  # wait for 10 seconds before checking again
 
     def remove_accents(text):
         if isinstance(text, str):
@@ -66,23 +62,18 @@ try:
         return text
 
 
-
-
-    base_url = "http://backend_sql:8000"
-    table_name = "caracts"
-
     # data = fetch_api_data(base_url, table_name)
-    data = get_all_accidents()
+    data = get_all_caracts(db)
     if data:
-        logging.info(len(data))
-        df_caract = pd.DataFrame(data)
-        df_caract.head()  # Print just the first few rows
+        rows = [obj.__dict__ for obj in data]
+        df_caract = pd.DataFrame(rows)
+
     else:
-        print("No data found.")
+        logging.info("No data found.")
 
     # df_caract.dropna(subset=['adr'], inplace=True) just pas uen variable utilisable.
     df_caract.reset_index(drop=True, inplace=True)
-    df_caract.drop(columns=["id"], inplace=True)
+    df_caract.drop(columns=["id"], inplace=True, errors="ignore")
     df_caract.drop(columns=['adr'], inplace=True)
     df_caract.drop(columns=["com"], inplace=True)
 
@@ -110,23 +101,22 @@ try:
 
 
 
-    base_url = "http://localhost:8000"
-    table_name = "lieux"
 
-    data = fetch_api_data(base_url, table_name)
+    data = get_all_lieux(db)
 
     if data:
-        df_lieux = pd.DataFrame(data)
-        df_lieux.head()  # Print just the first few rows
+        rows = [obj.__dict__ for obj in data]
+        df_lieux = pd.DataFrame(rows)
     else:
         print("No data found.")
 
     for col in df_lieux.select_dtypes(include='object'):
-        df_lieux[col] = df_lieux[col].str.strip().str.lower().apply(remove_accents)
+        df_lieux[col] = df_lieux[col].astype(str).str.strip().str.lower().apply(remove_accents)
+
     df_lieux.drop(columns=['voie'], inplace=True)
     df_lieux.drop(columns=['v1'], inplace=True)
     df_lieux.drop(columns=['v2'], inplace=True)
-    df_lieux.drop(columns=['id'], inplace=True)
+    df_lieux.drop(columns=['id'], inplace=True, errors="ignore")
     # trop d'options différentes pour cette variable je ne sais pas la quel traiter.
     df_lieux.drop(columns=['nbv'], inplace=True)
 
@@ -135,16 +125,12 @@ try:
 
 
 
-
-
-    base_url = "http://localhost:8000"
-    table_name = "usagers"
-
-    data = fetch_api_data(base_url, table_name)
+    data = get_all_usagers(db)
 
     if data:
-        df_usagers = pd.DataFrame(data)
-        df_usagers.head()  # Print just the first few rows
+        rows = [obj.__dict__ for obj in data]
+
+        df_usagers = pd.DataFrame(rows)
     else:
         print("No data found.")
 
@@ -153,11 +139,11 @@ try:
     for col in df_usagers.select_dtypes(include='object'):
         df_usagers[col] = df_usagers[col].str.strip()
 
-    df_usagers.drop(columns=['id'], inplace=True)
+    df_usagers.drop(columns=['id'], inplace=True, errors="ignore")
 
-    #Je ne sais pas ce que c'est 
-    df_usagers.drop(columns=['num_veh'], inplace=True)  
-    df_usagers.drop(columns=['catu'], inplace=True)  # redondance trop grosse avec la colonne place 
+    #Je ne sais pas ce que c'est
+    df_usagers.drop(columns=['num_veh'], inplace=True)
+    df_usagers.drop(columns=['catu'], inplace=True)  # redondance trop grosse avec la colonne place
 
     #je supose que c'est pas des information visibles 
     df_usagers.drop(columns=['secu1'], inplace=True)
@@ -226,15 +212,11 @@ try:
 
 
 
-
-    base_url = "http://localhost:8000"
-    table_name = "vehicules"
-
-    data = fetch_api_data(base_url, table_name)
+    data = get_all_vehicules(db)
 
     if data:
-        df_vehicules = pd.DataFrame(data)
-        df_vehicules.head()  # Print just the first few rows
+        rows = [obj.__dict__ for obj in data]
+        df_vehicules = pd.DataFrame(rows)
     else:
         print("No data found.")
 
@@ -243,7 +225,7 @@ try:
         df_vehicules[col] = df_vehicules[col].str.strip()
     df_vehicules.drop(columns=['occutc'], inplace=True)
     df_vehicules.drop(columns=['num_veh'], inplace=True)
-    df_vehicules.drop(columns=['id'], inplace=True)
+    df_vehicules.drop(columns=['id'], inplace=True, errors="ignore")
 
 
 
@@ -338,6 +320,7 @@ try:
 
     # Drop date_ajout from all DataFrames if it exists
     for df in [df_conducteurs, df_vehicules, df_lieux_duplicates, df_caract]:
+        df.drop(columns=['_sa_instance_state'], inplace=True, errors='ignore')
         if 'date_ajout' in df.columns:
             df.drop(columns=['date_ajout'], inplace=True)
 
@@ -364,7 +347,6 @@ try:
             yield db
         finally:
             db.close()
-
     def import_ai_training_data():
         try:
             df = merged_df
@@ -449,4 +431,4 @@ try:
             finally:
                 remove_lock_file(LOCK_FILE)
 except Exception as e:
-    logging.info(f"AI Training Data import An error occurred: {e}.")
+    logging.error(f"AI Training Data import An error occurred: {e}\n{traceback.format_exc()}")
