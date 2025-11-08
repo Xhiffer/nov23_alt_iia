@@ -4,6 +4,6 @@ connections
 
 add new connections :
 for exemple for backend connection :
-Conn Id 	Conn Type 	Description 	Host 	Port 	Is Encrypted 	Is Extra Encrypted 
+Conn Id 	Conn Type 	 	Host 	Port 	
 	
-backend_sql	http		http://backend_sql	8000	False	False
+backend_sql	http		http://backend_sql	8000	

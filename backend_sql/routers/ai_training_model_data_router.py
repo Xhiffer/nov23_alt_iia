@@ -25,14 +25,14 @@ def get_db():
 
 
 # Example CSV import endpoint (similar to lieux)
-@router.post("/ai-training-data/csv-to-sql/")
+@router.post("/ai-training-data/filter-data/")
 async def import_csv():
     try:
-        logging.info("Starting AITrainingModelData csv-to-sql import process...")
+        logging.info("Starting AITrainingModelData filter-data import process...")
         script_path = os.path.join("scripts", "filtre_data.py")
         subprocess.Popen(["python", script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        logging.info("AITrainingModelData csv-to-sql import process started successfully.")
-        return {"message": "AITrainingModelData csv-to-sql import started successfully!"}
+        logging.info("AITrainingModelData filter-data import process started successfully.")
+        return {"message": "AITrainingModelData filter-data import started successfully!"}
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
         return {"error": f"Unexpected error: {str(e)}"}

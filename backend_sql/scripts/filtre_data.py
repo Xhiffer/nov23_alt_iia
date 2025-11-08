@@ -4,7 +4,7 @@ import sys
 import os
 import traceback
 import logging
-
+import numpy as np
 # Logging setup
 log_folder = "logs"
 os.makedirs(log_folder, exist_ok=True)
@@ -21,7 +21,6 @@ try:
     # Project imports
     sys.path.append("/app")
 
-    import requests
     from typing import List, Dict, Union
     import unicodedata
     import pandas as pd
@@ -41,18 +40,6 @@ try:
 
     db = SessionLocal()
 
-    """
-    while 
-    import_caract.lock
-    import_lieux.lock
-    import_usagers.lock
-    import_vehicules.lock
-    wait
-    # """
-    while check_lock_file("scripts/import_caract.lock") or check_lock_file("scripts/import_lieux.lock") or check_lock_file("scripts/import_usagers.lock") or check_lock_file("scripts/import_vehicules.lock"):
-        logging.info("Waiting for other imports to finish...")
-        print("Waiting for other imports to finish...")
-        time.sleep(10)  # wait for 10 seconds before checking again
 
     def remove_accents(text):
         if isinstance(text, str):
@@ -335,11 +322,104 @@ try:
     merged_df = pd.merge(merged_df, df_caract, on='id_accident', how='inner')
 
 
+    """
+    à rajouté 
+    4) bien vue pour age
+    je pense nuit/jour pas possible de l'estimé là, on vas se basé sur lum, on dirait j'ai pas l'h de l'accident , 
+    vma vraiment besoin de catégorisé ? je me rend pas bien compte.  explique le regroupement 
+
+    1) rajouter les semaines / pas semaine + jours férié
+
+    """
 
 
+    """
+    les jours semaine / pas semaine, à voir rajouté jours férie. 
+
+    to make this we need to use the data : 
+    jour = Column(Integer)
+    mois = Column(Integer)
+    an = Column(Integer, index=True)
+    """
 
 
+    def dates_to_features(df):
+        """Convert jour, mois, an columns to day of week and is_holiday features."""
+        
+        import holidays
+        
+        # Initialize French holidays
+        fr_holidays = holidays.France()
+        
+        # Create date column from jour, mois, an
+        df['date'] = pd.to_datetime(df[['an', 'mois', 'jour']].rename(columns={'an': 'year', 'mois': 'month', 'jour': 'day'}), errors='coerce')
+        
+        # Extract day of week (0=Monday, 6=Sunday)
+        df['day_of_week'] = df['date'].dt.dayofweek
+        
+        # Create is_weekend feature (1 if Saturday or Sunday, 0 otherwise)
+        df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+        
+        # Determine if the date is a holiday
+        df['is_holiday'] = df['date'].dt.date.apply(lambda x: 1 if x in fr_holidays else 0)
+        
+        
+        return df
 
+
+    """
+    2) vma catégorisé  sauf gardé en brute pour model arbre
+    a revoir ce que j'ai comme vma thought --> voir si les valeurs sont cohérentes dans le bins
+    """
+    def vma_to_categorical(df):
+        """Convert vma column to categorical based on defined bins."""
+        bins = [-1, 30, 50, 70, 90, 110, 130, float('inf')]
+        labels = [0, 1, 2, 3, 4, 5, 6]  # Categorical labels
+        
+        df['vma_cat'] = pd.cut(df['vma'], bins=bins, labels=labels)
+        
+        return df
+
+
+    def an_nais_to_age(df, current_year=None):
+        """Convert an_nais column to age."""
+        if current_year is None:
+            if 'date' not in df.columns:
+                df['date'] = pd.to_datetime(df[['an', 'mois', 'jour']].rename(columns={'an': 'year', 'mois': 'month', 'jour': 'day'}), errors='coerce')
+            current_year = df['date'].dt.year
+        
+        df['age'] = current_year - df['an_nais']
+        
+        return df
+
+    def add_time_encodings(df: pd.DataFrame, col: str = 'hrmn_scaled') -> pd.DataFrame:
+        """
+        Adds sine and cosine cyclical encodings for a scaled time column (0–1 range).
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input DataFrame.
+        col : str, optional
+            Name of the scaled time column (default is 'hrmn_scaled').
+
+        Returns
+        -------
+        pd.DataFrame
+            The same DataFrame with two new columns: 'sin_time' and 'cos_time'.
+        """
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
+
+        df = df.copy()
+        df['sin_time'] = np.sin(2 * np.pi * df[col])
+        df['cos_time'] = np.cos(2 * np.pi * df[col])
+        df.drop(columns=[col], inplace=True)
+        return df
+    merged_df = dates_to_features(merged_df)
+    merged_df = vma_to_categorical(merged_df)
+    merged_df = an_nais_to_age(merged_df)
+    merged_df = add_time_encodings(merged_df, col='hrmn_scaled')
 
     def get_db():
         db = SessionLocal()
@@ -399,9 +479,18 @@ try:
                     lat=None if isna(row.get('lat')) else float(row.get('lat')),
                     long=None if isna(row.get('long')) else float(row.get('long')),
                     hrmn_scaled=None if isna(row.get('hrmn_scaled')) else float(row.get('hrmn_scaled')),
+                    #####
+                    date=None if isna(row.get('date')) else row.get('date'),
+                    day_of_week=None if isna(row.get('day_of_week')) else row.get('day_of_week'),
+                    is_weekend=None if isna(row.get('is_weekend')) else row.get('is_weekend'),
+                    is_holiday=None if isna(row.get('is_holiday')) else row.get('is_holiday'),
+                    vma_cat=None if isna(row.get('vma_cat')) else row.get('vma_cat'),
+                    age=None if isna(row.get('age')) else int(row.get('age')),
+                    sin_time=None if isna(row.get('sin_time')) else float(row.get('sin_time')),
+                    cos_time=None if isna(row.get('cos_time')) else float(row.get('cos_time')),
+                    #####
                     date_ajout=datetime.now()
                 )
-
                 db.add(record)
                 db.commit()
             except Exception as e:
@@ -416,7 +505,34 @@ try:
             logging.error(f"Error committing final batch: {e}")
             db.rollback()
 
+    def check_if_csv_done():
+        """check or folders :
+            scripts/import_lieux.lock
+            scripts/import_vehicules.lock
+            scripts/import_usagers.lock
+            scripts/import_caract.lock
+        are absent
+            """
+        lock_files = [
+            "scripts/import_lieux.lock",
+            "scripts/import_vehicules.lock", 
+            "scripts/import_usagers.lock",
+            "scripts/import_caract.lock"
+        ]
+        
+        # Return True if all lock files are absent (all imports done)
+        return not any(check_lock_file(lock_file) for lock_file in lock_files)
+                
+    """
+    this needs to run when all the data from the others dags are done.
+    """
     if __name__ == "__main__":
+        # Wait until all imports are complete
+        while not check_if_csv_done():
+            logging.info("Waiting for other imports to finish...")
+            print("Waiting for other imports to finish...")
+            time.sleep(10)    
+            
         LOCK_FILE = "scripts/import_ai_training_data.lock"
         if check_lock_file(LOCK_FILE):
             print("Another instance is already running. Exiting.")
@@ -432,3 +548,6 @@ try:
                 remove_lock_file(LOCK_FILE)
 except Exception as e:
     logging.error(f"AI Training Data import An error occurred: {e}\n{traceback.format_exc()}")
+
+
+

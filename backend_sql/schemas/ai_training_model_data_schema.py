@@ -50,7 +50,14 @@ class AITrainingModelDataBase(BaseModel):
     lat: Optional[float] = None
     long: Optional[float] = None
     hrmn_scaled: Optional[float] = None
-
+    date: Optional[datetime] = None
+    day_of_week: Optional[int] = None
+    is_weekend: Optional[int] = None
+    is_holiday: Optional[int] = None
+    vma_cat: Optional[str] = None
+    age: Optional[int] = None
+    cos_time: Optional[float] = None
+    sin_time: Optional[float] = None
 
 class AITrainingModelDataCreate(AITrainingModelDataBase):
     pass

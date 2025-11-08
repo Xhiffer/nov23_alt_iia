@@ -61,3 +61,7 @@ tmp/
 backend_sql/postgres-data/
 # backend_sql/scripts/csv/
 backend_sql/videos/
+
+
+# airflow
+airflow/logs/

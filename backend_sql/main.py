@@ -5,7 +5,7 @@ from routers.vehicules_router import router as vehicules_router
 from routers.usagers_router import router as usagers_router
 from routers.lieux_router import router as lieux_router
 from routers.caract_router import router as caract_router
-
+from routers.run_ai_models import router as ai_models_router
 from routers.resultat_ai_router import router as ai_results_router
 from routers.ai_training_model_data_router import router as ai_training_model_data_router
 
@@ -79,9 +79,7 @@ app.include_router(lieux_router, tags=["Lieux"])
 app.include_router(caract_router, tags=["Caractéristiques"])
 app.include_router(ai_results_router, tags=["AiResults"])
 app.include_router(ai_training_model_data_router, tags=["AiTrainingModelData"])
-
-
-
+app.include_router(ai_models_router, tags=["AiModels"])
 
 
 

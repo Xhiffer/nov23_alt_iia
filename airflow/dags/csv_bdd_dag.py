@@ -46,7 +46,7 @@ with DAG(
     ai_training_data = SimpleHttpOperator(
         task_id="import_ai_training_data",
         http_conn_id=BASE_CONN_ID,
-        endpoint="/ai-training-data/csv-to-sql/",
+        endpoint="/ai-training-data/filter-data/",
         method="POST",
         log_response=True,
     )

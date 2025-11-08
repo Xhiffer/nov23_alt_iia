@@ -53,4 +53,12 @@ class AITrainingModelData(Base):
     long = Column(Float)
     hrmn_scaled = Column(Float)
 
+    date = Column(DateTime)
+    day_of_week = Column(Integer)
+    is_weekend = Column(Integer)
+    is_holiday = Column(Integer)
+    vma_cat = Column(String)
+    age = Column(Integer)
+    cos_time = Column(Float)
+    sin_time = Column(Float)
     date_ajout = Column(DateTime, default=datetime.now, nullable=False)
