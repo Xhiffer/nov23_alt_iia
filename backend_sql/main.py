@@ -15,7 +15,7 @@ import logging
 import os
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models.gravites_tags import GraviteTag
+
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 tags_metadata = [
@@ -43,22 +43,9 @@ tags_metadata = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    tags_with_colors = {
-        'indemne': '#4CAF50',
-        'Tué(30j)': '#F44336',
-        'Blessé hosp. plus de 24h': '#FF9800',
-        'Blessé léger': '#FFEB3B',
-    }
 
     db: Session = SessionLocal()
-    try:
-        for label, color in tags_with_colors.items():
-            tag = db.query(GraviteTag).filter(GraviteTag.label == label).first()
-            if not tag:
-                db.add(GraviteTag(label=label, color=color))
-        db.commit()
-    finally:
-        db.close()
+   
 
     yield  # App runs here
 

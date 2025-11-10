@@ -3,6 +3,14 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+from models import Base 
+import models.vehicules_model
+import models.usagers_model
+import models.caract_model
+import models.lieux_model
+# import models.gravites_tags
+import models.resultat_ai_model
+import models.ai_training_model_data_model
 
 # Load environment variables from .env
 load_dotenv()
@@ -29,15 +37,6 @@ engine = create_engine(
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Import all Base models to create tables
-from models import Base 
-import models.vehicules_model
-import models.usagers_model
-import models.caract_model
-import models.lieux_model
-import models.gravites_tags
-import models.resultat_ai_model
-import models.ai_training_model_data_model
 
 
 

@@ -21,42 +21,43 @@ app = FastAPI()
 # -----------------------
 
 class DonneesAccident(BaseModel):
+    manv: int
+    plan: int
+    mois: int
+    age: int
+    n_passager: int
+    motor: int
+    larrout: int
+    an: int
+    cos_time: float
+    n_pieton: int
+    catr: int
+    surf: int
+    lum: int
+    sin_time: float
+    senc: int
+    circ: int
+    infra: int
+    dep: int
+    catv: int
+    vosp: int
+    situ: int
+    agg: int
+    day_of_week: int
+    obs: int
+    prof: int
+    int_: int
     sexe: int
     obsm: int
     pr: Union[str, int]
     jour: int
-    col: int
-    vma_cat: Optional[str] = None
-    choc: int
-    pr1: Union[str, int]
-    mois: int
-    age: int
-    manv: int
-    plan: int
-    an: int
-    cos_time: float
-    n_passager: int
-    motor: int
-    larrout: int
-    lum: int
-    sin_time: float
-    n_pieton: int
-    catr: int
-    surf: int
-    dep: int
-    senc: int
-    circ: int
-    infra: int
-    agg: int
-    day_of_week: int
-    catv: int
-    vosp: int
-    situ: int
-    int_: int
-    obs: int
-    prof: int
     atm: int
     is_holiday: int
+    choc: int
+    pr1: Union[str, int]
+    col: int
+    vma_cat: Optional[str] = None
+
 
 
 # -----------------------
@@ -82,6 +83,7 @@ def _load_best_model_internal():
     best_experiment = None
     best_exp_id = None
 
+    # 🔍 Look for best finished run
     for exp_name in experiment_names:
         exp = client.get_experiment_by_name(exp_name)
         if not exp:
@@ -104,31 +106,40 @@ def _load_best_model_internal():
                 best_exp_id = exp.experiment_id
 
     if not best_run:
-        raise RuntimeError("No valid model found in MLflow.")
+        raise RuntimeError("❌ No valid model found in MLflow.")
 
     run_id = best_run.info.run_id
     artifact_uri = best_run.info.artifact_uri
 
-    print(f"🔍 Base artifact_uri reported by MLflow: {artifact_uri}")
+    print(f"🔍 MLflow reports artifact_uri: {artifact_uri}")
 
-    # 🔧 Patch the path if needed (add '/models/')
-    # Because your real models are stored under mlflow/1/models/<run_id>/artifacts
-    if "/models/" not in artifact_uri:
-        parts = artifact_uri.split("/")
-        if parts[3].isdigit():  # experiment id
-            parts.insert(4, "models")
-            artifact_uri = "/".join(parts)
-            print(f"🔧 Adjusted artifact_uri to: {artifact_uri}")
-
+    # -------------------------
+    # Try to load the model dynamically from MLflow
+    # -------------------------
     try:
-        loaded_model = mlflow.sklearn.load_model(artifact_uri)
-        print(f"✅ Model successfully loaded from {artifact_uri}")
+        print(f"📦 Trying to load model directly from MLflow (run_id={run_id})...")
+        loaded_model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+        print(f"✅ Model successfully loaded from MLflow run {run_id}")
     except Exception as e:
-        raise RuntimeError(
-            f"❌ Failed to load MLflow model from {artifact_uri} "
-            f"(run_id={run_id}, experiment={best_experiment})\nOriginal error: {e}"
-        ) from e
+        print(f"⚠️ Could not load model via run_id ({run_id}). Trying manual MinIO path...")
+        print(f"Original MLflow error: {e}")
 
+        # 🔧 Force path to your known valid artifact location in MinIO
+        fallback_path = "s3://mlflow/1/models/m-d1d3d692694e415ea5b106f9bf190f53/artifacts/model.pkl"
+        try:
+            print(f"📦 Forcing load from fallback path: {fallback_path}")
+            loaded_model = mlflow.sklearn.load_model(fallback_path)
+            print(f"✅ Model successfully loaded from fallback path.")
+        except Exception as e2:
+            raise RuntimeError(
+                f"❌ Failed to load MLflow model even from fallback path.\n"
+                f"Run ID: {run_id}\n"
+                f"Experiment: {best_experiment}\n"
+                f"Original error: {e}\n"
+                f"Fallback error: {e2}"
+            ) from e2
+
+    # Save info globally
     model = loaded_model
     best_model_info = {
         "experiment": best_experiment,
@@ -137,6 +148,9 @@ def _load_best_model_internal():
         "accuracy": best_acc,
         "artifact_uri": artifact_uri,
     }
+
+    print(f"✅ Model ready to use (accuracy={best_acc}, experiment={best_experiment})")
+
 
 
 
@@ -216,7 +230,7 @@ async def estimer_gravite(
 
     files = {
         "video": (video.filename, video_bytes, video.content_type),
-        "resultat_ai_data": (None, json.dumps(payload), "application/json"),
+        "resultat_ai_data": (None, json.dumps(payload), "text/plain; charset=utf-8"),
     }
 
     backend_url = "http://backend_sql:8000/resultat_ai/"

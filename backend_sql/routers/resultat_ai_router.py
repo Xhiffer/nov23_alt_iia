@@ -27,22 +27,35 @@ def get_resultat_ai(resultat_ai_id: int, db: Session = Depends(get_db)):
 @router.post("/resultat_ai/", response_model=ResultatAiCreate)
 async def create_resultat_ai(
     video: UploadFile = File(...),
-    resultat_ai_data: str = Form(...),  # JSON string of your ResultatAiCreate data without video
+    resultat_ai_data: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    # Parse JSON string into your Pydantic model (excluding video)
-    data_dict = json.loads(resultat_ai_data)
+    print("📥 RAW incoming data:")
+    print(resultat_ai_data[:300])
 
-    # If you want to include video bytes in the model (or handle it separately)
+    try:
+        data_dict = json.loads(resultat_ai_data)
+        print("✅ Parsed data keys:", list(data_dict.keys()))
+    except Exception as e:
+        print("❌ JSON parse error:", e)
+        raise
+
+    # check for missing or extra fields
+    from pydantic import ValidationError
+    try:
+        resultat_ai_data_obj = ResultatAiCreate(**data_dict)
+    except ValidationError as e:
+        print("❌ Validation error:", e.json())
+        raise
+
     video_bytes = await video.read()
+    print(f"🎥 Video size: {len(video_bytes)} bytes")
 
-    # For example, pass both to your controller
-    resultat_ai_data_obj = ResultatAiCreate(**data_dict)
-
-    # Now pass video_bytes separately or add as attribute if your controller expects it
-    resultat_ai = resultat_ai_ctrl.create_resultat_ai(resultat_ai_data_obj, db, video_bytes=video_bytes)
-
+    resultat_ai = resultat_ai_ctrl.create_resultat_ai(
+        resultat_ai_data_obj, db, video_bytes=video_bytes
+    )
     return resultat_ai
+
 
 @router.put("/resultat_ai/{resultat_ai_id}", response_model=ResultatAiRead)
 def update_resultat_ai(resultat_ai_id: int, resultat_ai_data: ResultatAiCreate, db: Session = Depends(get_db)):

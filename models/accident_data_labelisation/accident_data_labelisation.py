@@ -46,43 +46,43 @@ app = FastAPI()
 
 
 class DonneesAccident(BaseModel):
+    manv: int
+    plan: int
+    mois: int
+    age: int
+    n_passager: int
+    motor: int
+    larrout: int
+    an: int
+    cos_time: float
+    n_pieton: int
+    catr: int
+    surf: int
+    lum: int
+    sin_time: float
+    senc: int
+    circ: int
+    infra: int
+    dep: int
+    catv: int
+    vosp: int
+    situ: int
+    agg: int
+    day_of_week: int
+    obs: int
+    prof: int
+    int_: int
     sexe: int
     obsm: int
     pr: Union[str, int]
     jour: int
-    col: int
-    vma_cat: Optional[str] = None
-    choc: int
-    pr1: Union[str, int]
-    mois: int
-    age: int
-    manv: int
-    plan: int
-    an: int
-    cos_time: float
-    n_passager: int
-    motor: int
-    larrout: int
-    lum: int
-    sin_time: float
-    n_pieton: int
-    catr: int
-    surf: int
-    dep: int
-    senc: int
-    circ: int
-    infra: int
-    agg: int
-    day_of_week: int
-    catv: int
-    vosp: int
-    situ: int
-    int_: int
-    obs: int
-    prof: int
     atm: int
     is_holiday: int
-
+    choc: int
+    pr1: Union[str, int]
+    col: int
+    vma_cat: Optional[str] = None
+    
 def dummy_labelisation_model(video_bytes: bytes) -> DonneesAccident:
     """Generate a fake set of accident features (for testing pipeline)."""
     import random

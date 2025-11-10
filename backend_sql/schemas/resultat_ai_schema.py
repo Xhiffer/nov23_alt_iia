@@ -1,7 +1,6 @@
 from typing import Optional, Union
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from schemas.gravites_tags_schema import GraviteTagRead
 
 
 class ResultatAiBase(BaseModel):
@@ -46,11 +45,10 @@ class ResultatAiBase(BaseModel):
 
 
 class ResultatAiCreate(ResultatAiBase):
-    gravite_estimee: Optional[str] = None
+    gravite_estimee: Optional[int] = None
 
 
 class ResultatAiRead(ResultatAiBase):
     id: int
-    gravite_tag: Optional[GraviteTagRead] = None
     video_path: str
     date_ajout: datetime

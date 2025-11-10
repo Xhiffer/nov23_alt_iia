@@ -33,7 +33,7 @@ try:
     from scripts.general_tain_setup import check_if_filtre_data_exist, check_if_filtre_data_done,group_grav_values, remove_excluded_columns, remove_lat_long_columns, remove_vma_column, remove_an_nais_column,delete_hrmn_scaled_column,delete_date_column
     db = SessionLocal()
 
-   
+    
     def data_set():
         data = get_all_ai_training_data(db)
         if data:
@@ -41,7 +41,11 @@ try:
             df = pd.DataFrame(rows)
         else:
             logging.info("No data found.")
-        logging.info(f"Dataframe columns before preprocessing: {df.columns}")
+            return pd.DataFrame()
+
+        logging.info(f"Dataframe columns before preprocessing: {df.columns.tolist()}")
+
+        # --- Apply your cleaning steps ---
         df = remove_excluded_columns(df)
         df = remove_lat_long_columns(df)
         df = remove_vma_column(df)
@@ -49,12 +53,37 @@ try:
         df = delete_hrmn_scaled_column(df)
         df = delete_date_column(df)
         df = group_grav_values(df)
-        df.drop(columns=['locp', 'is_weekend'], inplace=True)
 
-        logging.info(f"Dataframe columns after preprocessing: {df.columns}")
-        logging.info(f"Dataframe columns after preprocessing: {df.columns.tolist()}")
+        # Drop specific columns you don’t want
+        for col in ['locp', 'is_weekend']:
+            if col in df.columns:
+                df.drop(columns=[col], inplace=True)
 
-        # Log each column with its unique values
+        # --- Define expected column order (from training) ---
+        expected_columns = [
+            'manv', 'plan', 'mois', 'age', 'n_passager', 'motor', 'larrout', 'an',
+            'cos_time', 'n_pieton', 'catr', 'surf', 'lum', 'sin_time', 'senc', 'circ',
+            'infra', 'dep', 'catv', 'vosp', 'situ', 'agg', 'day_of_week', 'obs',
+            'prof', 'int_', 'sexe', 'obsm', 'pr', 'jour', 'atm', 'is_holiday',
+            'choc', 'pr1', 'col', 'vma_cat', 'grav'
+        ]
+
+        # --- Safety check ---
+        missing = [c for c in expected_columns if c not in df.columns]
+        extra = [c for c in df.columns if c not in expected_columns]
+
+        if missing:
+            logging.warning(f"⚠️ Missing columns from expected schema: {missing}")
+        if extra:
+            logging.warning(f"⚠️ Extra unexpected columns found: {extra}")
+
+        # --- Reorder columns (keep only those present in df) ---
+        df = df[[c for c in expected_columns if c in df.columns]]
+
+        # --- Log for verification ---
+        logging.info(f"✅ Final DataFrame columns ({len(df.columns)}): {df.columns.tolist()}")
+
+        # --- Log unique values for traceability ---
         for col in df.columns:
             unique_vals = df[col].unique().tolist()
             logging.info(f"Column '{col}' unique values ({len(unique_vals)}): {unique_vals}")
@@ -165,6 +194,7 @@ try:
         """check if datafilter done correctly"""
         # while not check_if_filtre_data_exist():
         #     print("Waiting for data import to finish...")
+        #     time.sleep(2)
         # while not check_if_filtre_data_done():
         #     logging.info("Waiting for other imports to finish...")
         #     print("Waiting for other imports to finish...")

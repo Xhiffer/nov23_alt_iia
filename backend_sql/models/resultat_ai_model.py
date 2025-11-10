@@ -8,6 +8,7 @@ class ResultatAi(Base):
     __tablename__ = "resultat_ai"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    gravite_estimee = Column(Integer, nullable=True)
 
     # --- Features used by the ML model ---
     sexe = Column(Integer, nullable=False)
@@ -49,8 +50,4 @@ class ResultatAi(Base):
 
     # --- Metadata and relationships ---
     video_path = Column(String, nullable=True, comment="Chemin vers la vidéo de l'accident")
-
-    gravite_tag_id = Column(Integer, ForeignKey("gravite_tag.id"), nullable=True)
-    gravite_tag = relationship("GraviteTag", backref="accidents")
-
     date_ajout = Column(DateTime, default=datetime.now, nullable=False)
