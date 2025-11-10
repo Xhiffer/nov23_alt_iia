@@ -15,6 +15,10 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 try:
+    import mlflow
+    import mlflow.sklearn
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    mlflow.set_experiment("logistic_regression_training")
     from sklearn.model_selection import train_test_split
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -24,7 +28,7 @@ try:
     from routers.ai_training_model_data_router import get_all_ai_training_data
     import pandas as pd
     from database import SessionLocal
-    from scripts.general_tain_setup import remove_excluded_columns, remove_lat_long_columns, remove_vma_column, remove_an_nais_column,delete_hrmn_scaled_column,delete_date_column
+    from scripts.general_tain_setup import group_grav_values, remove_excluded_columns, remove_lat_long_columns, remove_vma_column, remove_an_nais_column,delete_hrmn_scaled_column,delete_date_column
     db = SessionLocal()
 
    
@@ -37,11 +41,12 @@ try:
             logging.info("No data found.")
         logging.info(f"Dataframe columns before preprocessing: {df.columns}")
         df = remove_excluded_columns(df)
-        df = remove_lat_long_columns(df)
+        # df = remove_lat_long_columns(df)
         df = remove_vma_column(df)
         df = remove_an_nais_column(df)
         df = delete_hrmn_scaled_column(df)
         df = delete_date_column(df)
+        df = group_grav_values(df)
         df.drop(columns=['locp', 'is_weekend'], inplace=True)
 
         logging.info(f"Dataframe columns after preprocessing: {df.columns}")
@@ -150,7 +155,7 @@ try:
         
         return correlation_matrix, target_correlations
     
-    def train_logistic_regression(X, y):
+    def train_logistic_regression(X, y, params=None):
         """
         Train logistic regression model
         """
@@ -164,20 +169,11 @@ try:
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
 
-        ####
-        weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
-        class_weights = dict(zip(np.unique(y), weights))
-        ####
 
         # Train logistic regression model
         # Using 'liblinear' solver which works well for smaller datasets
         # max_iter increased for convergence
-        model = LogisticRegression(
-            random_state=42,
-            max_iter=1000,
-            solver='liblinear',
-            class_weight=class_weights 
-        )
+        model = LogisticRegression(**params)
         
         logging.info("Training logistic regression model...")
         model.fit(X_train_scaled, y_train)
@@ -185,7 +181,8 @@ try:
         # Make predictions
         y_pred_train = model.predict(X_train_scaled)
         y_pred_test = model.predict(X_test_scaled)
-        
+        mlflow.log_metric("accuracy", accuracy_score(y_test, y_pred_test))
+
         # Evaluate the model
         logging.info("="*60)
         logging.info("TRAINING SET PERFORMANCE")
@@ -224,7 +221,33 @@ try:
         X, y, label_encoders = prepare_data(df)
         analyze_correlations(X, y)
 
-        train_logistic_regression(X, y)
+        with mlflow.start_run(run_name="log_reg_experiment"):
+            weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+            class_weights = dict(zip(np.unique(y), weights))
+            default_params = {
+                "random_state": 42,
+                "max_iter": 1000,
+                "solver": "liblinear",
+                "class_weight": class_weights
+            }
+
+            model, scaler, X_train, X_test, y_train, y_test = train_logistic_regression(X, y, default_params)
+
+            # Log parameters    
+            for param, value in default_params.items():
+                mlflow.log_param(param, value)
+
+
+            # Log model
+            mlflow.sklearn.log_model(model, artifact_path="model")
+
+            # Optional: log scaler as artifact
+            import joblib
+            joblib.dump(scaler, "scaler.pkl")
+            mlflow.log_artifact("scaler.pkl")
+
+            logging.info("Model and metrics logged to MLflow successfully.")
+
 except Exception as e:
     logging.error(f"train_logistic_regression_model import An error occurred: {e}\n{traceback.format_exc()}")
 

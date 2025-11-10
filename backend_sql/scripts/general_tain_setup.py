@@ -7,11 +7,19 @@ from scripts.extensions_scripts import check_lock_file, create_lock_file, remove
 def check_if_filtre_data_done():
     lock_files = [
         "scripts/import_ai_training_data.lock",
+        "scripts/import_caracts.lock",
+        "scripts/import_lieux.lock",
+        "scripts/import_usagers.lock",
+        "scripts/import_vehicules.lock",
     ]
     
     # Return True if all lock files are absent (all imports done)
     return not any(check_lock_file(lock_file) for lock_file in lock_files)
-                
+def check_if_filtre_data_exist():
+    lock_files = [
+        "scripts/import_ai_training_data.lock",
+    ]       
+    return  any(check_lock_file(lock_file) for lock_file in lock_files)
 """
 géré les columns qu'on veut jamais :
 je prend pas les id id = Column(Integer, primary_key=True, index=True, autoincrement=True) 
@@ -85,6 +93,31 @@ def delete_date_column(df):
     if "date" in df.columns:
         return df.drop(columns=["date"])
     return df
+
+
+
+def group_grav_values(df):
+    """
+    Groups 'grav' values into two categories:
+    - 0 for Indemne + Blessé léger (1, 4)
+    - 1 for Tué + Blessé hospitalisé (2, 3)
+    """
+    if 'grav' not in df.columns:
+        raise ValueError("Column 'grav' not found in DataFrame")
+
+    mapping = {
+        1: 0,  # Indemne
+        4: 0,  # Blessé léger
+        2: 1,  # Tué
+        3: 1   # Blessé hospitalisé
+    }
+
+    df['grav_grouped'] = df['grav'].map(mapping)
+    df = df.drop(columns=['grav'])
+    df = df.rename(columns={'grav_grouped': 'grav'})
+
+    return df
+
 """
 
 

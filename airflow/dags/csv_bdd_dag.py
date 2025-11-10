@@ -50,5 +50,12 @@ with DAG(
         method="POST",
         log_response=True,
     )
-
-    caracts >> lieux >> usagers >> vehicules >> ai_training_data
+    ai_training_data_RandomForestClassifier = SimpleHttpOperator(
+        task_id="import_ai_training_data_RandomForestClassifier",
+        http_conn_id=BASE_CONN_ID,
+        endpoint="/ai-models/train/RandomForestClassifier/",
+        method="POST",
+        log_response=True,
+    )
+    """run model RandomForestClassifier after data import"""
+    caracts >> lieux >> usagers >> vehicules >> ai_training_data >> ai_training_data_RandomForestClassifier

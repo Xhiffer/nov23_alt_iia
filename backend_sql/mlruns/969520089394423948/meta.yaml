@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/969520089394423948
+creation_time: 1762619375410
+experiment_id: '969520089394423948'
+last_update_time: 1762619375410
+lifecycle_stage: active
+name: random_forest_training_local

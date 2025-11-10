@@ -1,3 +1,4 @@
+import time
 import sys
 import os
 import traceback
@@ -15,6 +16,11 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 try:
+    import mlflow
+    import mlflow.sklearn
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    mlflow.set_experiment("random_forest_training")
+
     from sklearn.model_selection import train_test_split
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -24,7 +30,7 @@ try:
     from routers.ai_training_model_data_router import get_all_ai_training_data
     import pandas as pd
     from database import SessionLocal
-    from scripts.general_tain_setup import remove_excluded_columns, remove_lat_long_columns, remove_vma_column, remove_an_nais_column,delete_hrmn_scaled_column,delete_date_column
+    from scripts.general_tain_setup import check_if_filtre_data_exist, check_if_filtre_data_done,group_grav_values, remove_excluded_columns, remove_lat_long_columns, remove_vma_column, remove_an_nais_column,delete_hrmn_scaled_column,delete_date_column
     db = SessionLocal()
 
    
@@ -42,9 +48,17 @@ try:
         df = remove_an_nais_column(df)
         df = delete_hrmn_scaled_column(df)
         df = delete_date_column(df)
+        df = group_grav_values(df)
         df.drop(columns=['locp', 'is_weekend'], inplace=True)
 
         logging.info(f"Dataframe columns after preprocessing: {df.columns}")
+        logging.info(f"Dataframe columns after preprocessing: {df.columns.tolist()}")
+
+        # Log each column with its unique values
+        for col in df.columns:
+            unique_vals = df[col].unique().tolist()
+            logging.info(f"Column '{col}' unique values ({len(unique_vals)}): {unique_vals}")
+
         return df
         
     def prepare_data(df):
@@ -88,11 +102,13 @@ try:
         return X, y, label_encoders
     
 
-    def train_random_forest(X, y):
+    def train_random_forest(X, y, params=None):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
-
+        # scaler = StandardScaler()
+        # X_train_scaled = scaler.fit_transform(X_train)
+        # X_test_scaled = scaler.transform(X_test)
         # Compute class weights
         weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
         class_weights = dict(zip(np.unique(y), weights))
@@ -106,21 +122,14 @@ try:
         n_estimators=100 (kept) - 300 was too many
         """
         model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            min_samples_split=20,
-            min_samples_leaf=10,
-            max_samples=0.8,
-            random_state=42,
-            class_weight=class_weights,
-            n_jobs=-1
+            **params
         )
 
         model.fit(X_train, y_train)
 
         y_pred_train = model.predict(X_train)
         y_pred_test = model.predict(X_test)
-
+        mlflow.log_metric("accuracy", accuracy_score(y_test, y_pred_test))
         # Evaluation
         logging.info("="*60)
         logging.info("TRAINING SET PERFORMANCE")
@@ -152,11 +161,44 @@ try:
         return model, X_train, X_test, y_train, y_test
     
     if __name__ == "__main__":  
+
+        """check if datafilter done correctly"""
+        # while not check_if_filtre_data_exist():
+        #     print("Waiting for data import to finish...")
+        # while not check_if_filtre_data_done():
+        #     logging.info("Waiting for other imports to finish...")
+        #     print("Waiting for other imports to finish...")
+        #     time.sleep(10)    
         print("RandomForestClassifier script started")
         df = data_set()
         X, y, label_encoders = prepare_data(df)
+        with mlflow.start_run(run_name="RandomForestClassifier_experiment"):
+            weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+            class_weights = dict(zip(np.unique(y), weights))
+            default_params = {
+                "n_estimators": 200,
+                "max_depth": 5,
+                "min_samples_split": 2,
+                "min_samples_leaf": 10,
+                "max_samples": None,
+                "random_state": 42,
+                "class_weight": class_weights,
+                "n_jobs": -1
+            }
 
-        train_random_forest(X, y)
+            model, X_train, X_test, y_train, y_test = train_random_forest(X, y, default_params)
+
+            # Log parameters    
+            for param, value in default_params.items():
+                mlflow.log_param(param, value)
+
+
+            # Log model
+            mlflow.sklearn.log_model(model, artifact_path="model")
+
+
+            logging.info("Model and metrics logged to MLflow successfully.")
+
 except Exception as e:
     logging.error(f"RandomForestClassifier import An error occurred: {e}\n{traceback.format_exc()}")
 

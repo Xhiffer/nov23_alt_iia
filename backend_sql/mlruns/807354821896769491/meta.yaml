@@ -1,0 +1,6 @@
+artifact_location: file:///app/mlruns/807354821896769491
+creation_time: 1762617971059
+experiment_id: '807354821896769491'
+last_update_time: 1762617971059
+lifecycle_stage: active
+name: logistic_regression_training_local

@@ -1,0 +1,14 @@
+artifact_uri: file:///app/mlruns/969520089394423948/debc0133fd8c42f69a6b6143b4845c7b/artifacts
+end_time: 1762620068942
+entry_point_name: ''
+experiment_id: '969520089394423948'
+lifecycle_stage: active
+run_id: debc0133fd8c42f69a6b6143b4845c7b
+run_name: RandomForestClassifier_experiment
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762620063737
+status: 3
+tags: []
+user_id: root
