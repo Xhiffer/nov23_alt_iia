@@ -85,3 +85,8 @@ def test_crud_caract():
     final_get = client.get(f"/caracts/{caract_id}")
     assert final_get.status_code == 404
     print("Final GET after deletion correctly returned 404.")
+
+
+"""
+docker exec -it backend_sql pytest -v pytests/crud_test/caract_crud_test.py
+"""
