@@ -349,7 +349,7 @@ services:
       - dbnet
     restart: on-failure
 
-  API_Gateway: 
+  api_gateway:
     build:
       context: ./api_gateway
     container_name: api_gateway

@@ -71,6 +71,12 @@ app.include_router(ai_models_router, tags=["AiModels"])
 app.include_router(monitoring_router, tags=["Monitoring"])
 
 
+@app.get("/health", tags=["Monitoring"])
+def health():
+    """Liveness probe used by the Docker healthcheck."""
+    return {"status": "ok"}
+
+
 
 
 # Set up logging (optional)
