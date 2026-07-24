@@ -65,3 +65,6 @@ backend_sql/videos/
 
 # airflow
 airflow/logs/
+
+# monitoring — rapports de drift générés
+backend_sql/monitoring_reports/

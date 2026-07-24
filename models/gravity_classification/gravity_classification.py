@@ -14,7 +14,37 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Union
 
+import time
+from prometheus_client import Counter, Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
+
 app = FastAPI()
+
+# -----------------------
+# Prometheus monitoring
+# -----------------------
+# Standard HTTP metrics (request count, latency, in-progress...) + /metrics endpoint.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+# ML-specific metrics.
+PREDICTIONS_TOTAL = Counter(
+    "gravity_predictions_total",
+    "Nombre de prédictions par classe de gravité prédite.",
+    ["predicted_class"],
+)
+PREDICTION_PROBABILITY = Histogram(
+    "gravity_prediction_probability",
+    "Distribution de la probabilité (confiance) de la classe prédite.",
+    buckets=(0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0),
+)
+PREDICT_LATENCY = Histogram(
+    "gravity_predict_latency_seconds",
+    "Latence de l'inférence du modèle (hors overhead HTTP).",
+)
+PREDICT_ERRORS_TOTAL = Counter(
+    "gravity_predict_errors_total",
+    "Nombre d'erreurs survenues pendant l'inférence.",
+)
 
 # -----------------------
 # Pydantic models
@@ -171,14 +201,26 @@ def _predict_from_donnees(accident: DonneesAccident) -> dict:
     # - your training logs show all these columns already numeric/encoded
     # - the model was trained directly on these 36 features
 
-    # Run prediction
-    pred = model.predict(data)[0]
+    # Run prediction (timed + instrumented for Prometheus)
+    start = time.perf_counter()
+    try:
+        pred = model.predict(data)[0]
 
-    # Optional: probability if the model supports predict_proba
-    proba = None
-    if hasattr(model, "predict_proba"):
-        proba_arr = model.predict_proba(data)
-        proba = float(np.max(proba_arr[0]))
+        # Optional: probability if the model supports predict_proba
+        proba = None
+        if hasattr(model, "predict_proba"):
+            proba_arr = model.predict_proba(data)
+            proba = float(np.max(proba_arr[0]))
+    except Exception:
+        PREDICT_ERRORS_TOTAL.inc()
+        raise
+    finally:
+        PREDICT_LATENCY.observe(time.perf_counter() - start)
+
+    # Record ML metrics
+    PREDICTIONS_TOTAL.labels(predicted_class=str(int(pred))).inc()
+    if proba is not None:
+        PREDICTION_PROBABILITY.observe(proba)
 
     return {
         "gravite_estimee": int(pred),

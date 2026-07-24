@@ -258,14 +258,21 @@ automatisé**.
 
 - **Surveillez-vous le modèle en production ?**
 
-**Non.** Pas de monitoring **système** (Prometheus/OpenTelemetry) au-delà des `healthcheck` Docker
-(`/health`, `/minio/health/live`), et **pas de monitoring ML** (data drift, prediction drift/PSI,
-dégradation de performance). Pas d'**alerting** (Slack/PagerDuty).
+✅ **En partie mis en place.**
 
-- ⚠️ **Enjeu spécifique :** sur un modèle qui estime une **gravité corporelle**, l'absence de suivi de
-  drift et d'**évaluation d'équité par sous-population** est une vraie limite éthique et métier.
-- **Pistes :** Evidently/Prometheus + dashboard « santé modèle » (AUC, latence, drift), alertes sur
-  seuils, et une **Model Card** documentant limites, biais et modes d'échec.
+- **Observabilité temps réel :** le service `gravity_classification` est instrumenté (Prometheus via
+  `prometheus-fastapi-instrumentator` + métriques custom : distribution des classes prédites, probabilité,
+  latence d'inférence, erreurs). **Prometheus** scrape `/metrics` et **Grafana** affiche un dashboard
+  provisionné (débit, latence p95, prédictions par classe, erreurs).
+- **Drift ML :** endpoint `POST /monitoring/drift-report/` basé sur **Evidently** (data drift +
+  target drift), renvoyant `drift_share` / `dataset_drift` / `alert` + rapport HTML, exécuté
+  quotidiennement par le DAG Airflow `ml_monitoring_drift` (seuil `DRIFT_SHARE_THRESHOLD`).
+
+- ⚠️ **Limites restantes :** la fenêtre « courante » du drift est un **proxy** (pas encore de journal des
+  features de prédiction en production) ; l'**alerting** se limite aux logs (à router vers Slack/PagerDuty
+  ou des règles Grafana) ; pas encore de suivi de performance online (nécessite les labels réels).
+- ⚠️ **Enjeu spécifique :** sur un modèle de **gravité corporelle**, l'**évaluation d'équité par
+  sous-population** reste à mener (voir Model Card §5).
 
 ---
 
@@ -328,11 +335,13 @@ l'exposition.
 ingestion → training, experiment tracking MLflow avec stores Postgres + MinIO, serving FastAPI propre
 avec sélection dynamique du modèle, preprocessing centralisé et déterministe, gestion du déséquilibre de
 classes, et désormais **documentation (`README`/`CONTRIBUTING`)** + **CI/CD GitHub Actions** avec une
-**stratégie de branches `dev`/`staging`/`prod`**.
+**stratégie de branches `dev`/`staging`/`prod`**, plus un **monitoring ML** (Prometheus + Grafana +
+Evidently) et des **fiches de gouvernance** (Model Card, Datasheet).
 
 **Ce qui manque pour l'état de l'art :** Model Registry (champion/challenger + quality gate), validation
-de données bloquante, tests data/modèle, monitoring + drift + alerting, rollback/canary, data versioning
-et lineage complète, branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
+de données bloquante, tests data/modèle, **alerting** effectif (les métriques/drift existent mais
+restent en logs) + suivi de performance online, rollback/canary, data versioning et lineage complète,
+branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
 Card et le Datasheet existent désormais mais restent à compléter (métriques réelles, **analyse
 d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécurité et câbler le déploiement réel.
 
@@ -350,13 +359,13 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
 | Model Registry | 5 | 1 | Sélection par accuracy, pas de Registry |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
-| Monitoring ML | 8 | 0 | Absent |
-| Monitoring infra + alerting | 5 | 1 | Healthchecks Docker seulement |
+| Monitoring ML | 8 | 5 | Prometheus + Evidently (drift) + DAG ; fenêtre courante proxy, perf online absente |
+| Monitoring infra + alerting | 5 | 3 | Prometheus + Grafana ✓ ; alerting encore en logs seulement |
 | Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
 | Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 42** | **MLOps basique consolidé — en route vers « bon projet »** |
+| **Total** | **100** | **≈ 49** | **MLOps en consolidation — approche du « bon projet MLOps »** |
 
 ### Feuille de route (par impact décroissant)
 
@@ -364,7 +373,8 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
    ajouter un scan sécurité (bandit/trivy) et câbler le déploiement réel.
 2. **MLflow Model Registry + quality gate** (F1 > baseline) → sélection et rollback propres.
 3. **Validation de données bloquante** (Great Expectations/Pandera) + **tests data/modèle** en CI.
-4. **Monitoring + drift + alerting** (Evidently/Prometheus) et **Model Card** (sujet sensible).
+4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; reste à câbler l'**alerting**
+   (Slack/PagerDuty ou règles Grafana) et le suivi de **performance online**.
 5. **Brancher les secrets** (`.env` → `docker-compose.yml`), `FERNET_KEY` réelle, `LOAD_EXAMPLES=false`.
 6. **Data versioning + lineage** (digest dataset + git SHA loggués par run).
 

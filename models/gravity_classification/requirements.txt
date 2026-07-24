@@ -8,6 +8,8 @@ requests
 python-multipart
 mlflow
 boto3
+prometheus-client
+prometheus-fastapi-instrumentator
 
 
 #pour accident detection 

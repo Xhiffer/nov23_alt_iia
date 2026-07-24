@@ -8,14 +8,15 @@ from routers.caract_router import router as caract_router
 from routers.run_ai_models import router as ai_models_router
 from routers.resultat_ai_router import router as ai_results_router
 from routers.ai_training_model_data_router import router as ai_training_model_data_router
-from routers.monitoring_router import router as monitoring_router
+from routers.login_router import router as login
+from routers.ai_api_router import router as ai_api_router
+from routers.front_router import router as front_router
 
 from fastapi.responses import JSONResponse
 import subprocess
 import logging
 import os
-from sqlalchemy.orm import Session
-from database import SessionLocal
+
 
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,25 +43,17 @@ tags_metadata = [
     }
 ]
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-
-    db: Session = SessionLocal()
-   
-
-    yield  # App runs here
 
     
 # FastAPI app setup
-app = FastAPI(openapi_tags=tags_metadata,lifespan=lifespan)
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["http://frontend:5010"],  # your frontend origin here,  # adjust with your frontend URL(s)
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+app = FastAPI(openapi_tags=tags_metadata)
+
 # Include the router for Vehicules API endpoints
+app.include_router(login, tags=["login"])
+
+app.include_router(ai_api_router, tags=["ai_api_router"])
+app.include_router(front_router, tags=["front_router"])
+
 app.include_router(vehicules_router, tags=["Véhicules"])
 app.include_router(usagers_router, tags=["Usagers"])
 app.include_router(lieux_router, tags=["Lieux"])
@@ -68,7 +61,6 @@ app.include_router(caract_router, tags=["Caractéristiques"])
 app.include_router(ai_results_router, tags=["AiResults"])
 app.include_router(ai_training_model_data_router, tags=["AiTrainingModelData"])
 app.include_router(ai_models_router, tags=["AiModels"])
-app.include_router(monitoring_router, tags=["Monitoring"])
 
 
 

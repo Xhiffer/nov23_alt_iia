@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Serving du modèle de gravité (instrumenté via prometheus-fastapi-instrumentator)
+  - job_name: gravity_classification
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ai_model_gravity_classification:81"]
+
+  # Prometheus lui-même
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

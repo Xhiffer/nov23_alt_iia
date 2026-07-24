@@ -127,6 +127,8 @@ Puis déclencher le pipeline dans l'UI Airflow (<http://localhost:8080>) en acti
 | MLflow                          | <http://localhost:5000>   | Tracking UI |
 | MinIO console                   | <http://localhost:9001>   | Stockage artefacts |
 | PgAdmin                         | <http://localhost:8084>   | Administration PostgreSQL |
+| Prometheus                      | <http://localhost:9090>   | Collecte des métriques |
+| Grafana                         | <http://localhost:3000>   | Dashboards monitoring (admin/admin) |
 
 ## Variables d'environnement
 
@@ -163,6 +165,26 @@ Le service `gravity_classification` charge dynamiquement le meilleur run MLflow 
 | `/load_best_model`  | POST    | (Re)charge le meilleur modèle depuis MLflow |
 | `/predict_gravite`  | POST    | Prédiction à partir d'un JSON `DonneesAccident` (36 features) |
 | `/estimer_gravite`  | POST    | Vidéo + JSON → prédiction → persistance via `backend_sql` |
+
+## Monitoring ML
+
+Deux couches complémentaires :
+
+- **Observabilité temps réel — Prometheus + Grafana.** Le service `gravity_classification` est instrumenté
+  (`prometheus-fastapi-instrumentator` + métriques custom) et expose `/metrics` :
+  `gravity_predictions_total{predicted_class}`, `gravity_prediction_probability`,
+  `gravity_predict_latency_seconds`, `gravity_predict_errors_total`, plus les métriques HTTP standard.
+  Prometheus (`monitoring/prometheus.yml`) les scrape ; Grafana charge automatiquement la datasource et le
+  dashboard *Gravity Classification — ML Monitoring* (`monitoring/grafana/`).
+- **Détection de drift — Evidently.** L'endpoint `POST /monitoring/drift-report/` compare un jeu de
+  référence (données d'entraînement) à une fenêtre courante et renvoie
+  `{dataset_drift, drift_share, n_drifted_features, alert}` + un rapport HTML
+  (`backend_sql/monitoring_reports/`). Le seuil d'alerte est réglable via `DRIFT_SHARE_THRESHOLD`. Le DAG
+  Airflow `ml_monitoring_drift` l'exécute quotidiennement.
+
+> Limites : la fenêtre « courante » du drift est un **proxy** (dernières lignes de la table
+> d'entraînement) tant qu'un journal des features de prédiction en production n'existe pas ; l'alerting se
+> limite aux logs (à router vers Slack/PagerDuty ou des règles Grafana).
 
 ## Tests
 
@@ -208,7 +230,7 @@ uniquement). Avant tout déploiement :
 
 ## Feuille de route MLOps
 
-L'auto-évaluation détaillée (≈ 42/100) et la feuille de route priorisée figurent dans
+L'auto-évaluation détaillée (≈ 49/100) et la feuille de route priorisée figurent dans
 [`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). La gouvernance du modèle est documentée dans
 [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) et [`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md).
 Prochaines priorités : MLflow Model Registry + quality gate, validation de données bloquante,
