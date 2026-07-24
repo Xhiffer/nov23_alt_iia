@@ -1,0 +1,89 @@
+name: CD
+
+# Build & push images then deploy, per environment.
+#   push to staging -> environment "staging"
+#   push to prod    -> environment "production" (protect with required reviewers in GitHub settings)
+on:
+  push:
+    branches: [staging, prod]
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  # --- Resolve which environment this push targets ---
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      tag: ${{ steps.env.outputs.tag }}
+    steps:
+      - id: env
+        run: |
+          if [ "${{ github.ref_name }}" = "prod" ]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            echo "tag=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+            echo "tag=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+  # --- Build & push one image per service to GHCR ---
+  build-and-push:
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - name: backend_sql
+            context: ./backend_sql
+          - name: api_gateway
+            context: ./api_gateway
+          - name: gravity_classification
+            context: ./models/gravity_classification
+          - name: accident_detection
+            context: ./models/accident_detection
+          - name: accident_data_labelisation
+            context: ./models/accident_data_labelisation
+          - name: frontend
+            context: ./front
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.setup.outputs.tag }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ needs.setup.outputs.tag }}-${{ github.sha }}
+
+  # --- Deploy: gated by the GitHub Environment (add reviewers/secrets there) ---
+  deploy:
+    needs: [setup, build-and-push]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to ${{ needs.setup.outputs.environment }}
+        # Placeholder: wire to your target (SSH, docker compose pull+up, k8s, etc.).
+        # Environment secrets (DEPLOY_HOST, DEPLOY_KEY, ...) are configured in
+        # GitHub > Settings > Environments > ${{ needs.setup.outputs.environment }}.
+        run: |
+          echo "Deploying tag '${{ needs.setup.outputs.tag }}' to '${{ needs.setup.outputs.environment }}'"
+          echo "Images: ${{ env.IMAGE_PREFIX }}/<service>:${{ needs.setup.outputs.tag }}-${{ github.sha }}"
+          echo "TODO: replace with real deployment (e.g. ssh + docker compose pull && up -d)."

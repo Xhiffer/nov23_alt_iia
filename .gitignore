@@ -46,6 +46,7 @@ Thumbs.db
 # dotenv files
 .env
 .env.*
+!.env.example
 
 # Docker
 *.pid
