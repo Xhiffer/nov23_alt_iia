@@ -208,9 +208,11 @@ uniquement). Avant tout déploiement :
 
 ## Feuille de route MLOps
 
-L'auto-évaluation détaillée (≈ 29/100) et la feuille de route priorisée figurent dans
-[`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). Priorités : CI/CD (ce document), MLflow Model
-Registry + quality gate, validation de données bloquante, monitoring/drift, gestion des secrets.
+L'auto-évaluation détaillée (≈ 42/100) et la feuille de route priorisée figurent dans
+[`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). La gouvernance du modèle est documentée dans
+[`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) et [`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md).
+Prochaines priorités : MLflow Model Registry + quality gate, validation de données bloquante,
+monitoring/drift, branchement effectif des secrets (`.env` → compose).
 
 ## Licence
 

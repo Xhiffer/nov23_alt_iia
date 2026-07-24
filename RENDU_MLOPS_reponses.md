@@ -18,8 +18,10 @@ automatisé). Concrètement :
 
 - ✅ Nous avons dépassé le stade « notebook + modèle pickle » : le cycle **ingestion → filtrage →
   entraînement** est orchestré par Airflow et suivi dans MLflow.
-- ⚠️ Il nous manque encore la **CI/CD**, le **Model Registry** formel, le **monitoring en production** et
-  le **ré-entraînement continu (CT)** pour prétendre au niveau 2.
+- ✅ Une **CI/CD GitHub Actions** et une **stratégie de branches par environnement** (`dev` / `staging` /
+  `prod`) sont désormais en place (voir §11).
+- ⚠️ Il nous manque encore le **Model Registry** formel, le **monitoring en production** et le
+  **ré-entraînement continu (CT)** pour prétendre pleinement au niveau 2.
 
 - **Quelle est la tâche ML industrialisée ?**
 
@@ -71,9 +73,11 @@ docker compose up
 
 - ✅ Les **seeds** sont fixées là où ça compte (`train_test_split(random_state=42)`,
   `RandomForestClassifier(random_state=42)`).
-- ⚠️ **Limites :** pas de `README` à la racine ; images non taguées (`build` local, pas de
-  `model-api:1.x.y`) ; dépendances dans des `requirements.txt` par service dont les versions ne sont pas
-  toutes épinglées ; pas de `Makefile` « one-command reproduce ».
+- ✅ Un **`README.md`** complet documente désormais l'architecture, les services/ports, le quickstart, le
+  pipeline, les tests et la CI/CD ; un **`.env.example`** liste les variables d'environnement à fournir.
+- ⚠️ **Limites restantes :** images non taguées (`build` local, pas de `model-api:1.x.y`) ; dépendances
+  dans des `requirements.txt` par service dont les versions ne sont pas toutes épinglées ; pas de
+  `Makefile` « one-command reproduce ».
 - ✅ Bon point : `.gitignore` exclut bien `.env`, `*.log`, `backend_sql/postgres-data/` et
   `airflow/logs/` — les secrets et la base ne sont pas censés être versionnés.
 
@@ -215,13 +219,25 @@ véhicules, resultat_ai, ai_training_data) et un `pytest.py` dans `gravity_class
 
 - **Avez-vous une intégration/déploiement continu ?**
 
-**Non.** Il n'y a pas de dossier `.github/` ni de pipeline GitLab CI. Les commits sont poussés
-directement sur `main` (peu de branches/PR, pas de tags de release). Le déploiement se fait par
-`docker compose up` manuel ; les images sont reconstruites localement, sans registry.
+✅ **Oui, désormais en place.** Nous avons adopté une **stratégie de branches à trois environnements** :
+`dev` (ex-`main`, branche d'intégration par défaut) → `staging` → `prod`, documentée dans
+`CONTRIBUTING.md`. Deux workflows **GitHub Actions** ont été ajoutés :
 
-- **Piste prioritaire :** une **GitHub Actions** `lint → tests (unit + data + model) → build → scan`
-  déclenchée sur PR, puis un CD `build → push registry → staging → prod`. C'est le poste où nous
-  gagnerions le plus de points (10/100).
+- **CI** (`.github/workflows/ci.yml`), sur chaque PR et push vers `dev`/`staging`/`prod` :
+  **lint (ruff)** + **tests (pytest sur une base PostgreSQL de service)** + **validation Docker**
+  (`docker compose config` + build de l'image backend).
+- **CD** (`.github/workflows/cd.yml`), sur push vers `staging` et `prod` : **build + push des images** de
+  tous les services vers **GHCR** (tag = environnement + SHA), puis un **job de déploiement rattaché à
+  l'environnement GitHub** correspondant (revue requise possible sur `production`).
+
+- ⚠️ **Limites / à finaliser :**
+  - le **lint ruff** est encore en `continue-on-error` (non bloquant, le temps d'assainir le code) ;
+  - les tests restent **CRUD uniquement** (pas encore de tests data/modèle dans la CI) ;
+  - le **job `deploy` est un placeholder** (echo) : il reste à câbler sur la cible réelle
+    (SSH + `docker compose pull && up -d`, ou k8s) ;
+  - la **protection de branches** et les **Environments** GitHub (reviewers, secrets de déploiement)
+    doivent être configurés dans l'UI (non versionnables).
+- ✅ Reste à ajouter : tags/releases sémantiques et un **scan de sécurité** (bandit/trivy) dans la CI.
 
 ---
 
@@ -279,8 +295,12 @@ DAGs d'exemple.
 
 - ✅ **Bon point :** `.gitignore` exclut `.env` et `.env.*`, donc les vrais secrets ne sont pas
   versionnés.
-- **Pistes :** externaliser via `.env`/secrets manager, générer une vraie `FERNET_KEY`, désactiver les
-  exemples, ajouter TLS + auth API, et un **scan** (bandit / trivy) en CI.
+- ✅ **Premier pas fait :** un **`.env.example`** documente désormais toutes les variables à externaliser
+  (avec des valeurs `change_me` et la commande de génération de `FERNET_KEY`), et le `README` rappelle de
+  remplacer les identifiants par défaut avant tout déploiement.
+- ⚠️ **Reste à faire :** le `docker-compose.yml` **n'est pas encore branché sur `.env`** (les secrets y
+  restent en clair). Prochaine étape : `env_file`/`${VAR}` dans le compose, `FERNET_KEY` réelle,
+  `LOAD_EXAMPLES=false`, TLS + auth API, et un **scan** (bandit / trivy) dans la CI.
 
 ---
 
@@ -288,10 +308,15 @@ DAGs d'exemple.
 
 - **Documentation et conformité ?**
 
-Pas encore de **Model Card** ni de **datasheet** du jeu de données. Les données BAAC concernent des
-**personnes** (usagers) : nous excluons déjà les identifiants (`id`, `id_usager`, `lat/long`…) au
-preprocessing, ce qui limite l'exposition, mais aucune **politique de rétention/anonymisation** n'est
-formalisée.
+✅ Une **Model Card** ([`docs/MODEL_CARD.md`](docs/MODEL_CARD.md)) et un **Datasheet** du jeu de données
+([`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md)) ont été rédigés (structure complète, sections
+usage/limites/fairness/privacy), avec des champs `À COMPLÉTER` pour les valeurs réelles (métriques,
+propriétaires, licence, rétention). Les données BAAC concernent des **personnes** (usagers) : nous
+excluons déjà les identifiants (`id`, `id_usager`, `lat/long`…) au preprocessing, ce qui limite
+l'exposition.
+
+- ⚠️ **Reste à faire :** renseigner les placeholders (notamment métriques réelles et **analyse
+  d'équité**), et formaliser la **politique de rétention/anonymisation**.
 
 ---
 
@@ -302,41 +327,45 @@ formalisée.
 **Ce qui est solide :** containerisation complète, orchestration Airflow d'un pipeline
 ingestion → training, experiment tracking MLflow avec stores Postgres + MinIO, serving FastAPI propre
 avec sélection dynamique du modèle, preprocessing centralisé et déterministe, gestion du déséquilibre de
-classes.
+classes, et désormais **documentation (`README`/`CONTRIBUTING`)** + **CI/CD GitHub Actions** avec une
+**stratégie de branches `dev`/`staging`/`prod`**.
 
-**Ce qui manque pour l'état de l'art :** CI/CD, Model Registry (champion/challenger + quality gate),
-validation de données bloquante, tests data/modèle, monitoring + drift + alerting, rollback/canary,
-data versioning et lineage complète, sécurité (secrets), gouvernance (Model Card, fairness).
+**Ce qui manque pour l'état de l'art :** Model Registry (champion/challenger + quality gate), validation
+de données bloquante, tests data/modèle, monitoring + drift + alerting, rollback/canary, data versioning
+et lineage complète, branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
+Card et le Datasheet existent désormais mais restent à compléter (métriques réelles, **analyse
+d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécurité et câbler le déploiement réel.
 
 ### Auto-évaluation /100
 
 | Domaine | Points | Auto-éval | Justification |
 | --- | ---: | ---: | --- |
-| Git + qualité logicielle | 5 | 2 | Pas de README/PR/tags, commits directs `main` |
-| Reproductibilité | 8 | 5 | Docker ✓, seeds ✓ ; images non taguées, pas de README |
+| Git + qualité logicielle | 5 | 4 | README + CONTRIBUTING + branches `dev`/`staging`/`prod` + PR ; manque tags/releases, protections |
+| Reproductibilité | 8 | 6 | Docker ✓, seeds ✓, README + `.env.example` ✓ ; images non taguées |
 | Data versioning | 7 | 1 | Pas de DVC ni digest dataset |
 | Data validation | 6 | 2 | Contrôle de schéma en warning, non bloquant |
 | Experiment tracking | 6 | 5 | MLflow + Postgres + MinIO ✓ ; accuracy seule |
 | Tests ML | 8 | 2 | CRUD seulement, pas de tests data/modèle |
 | Pipeline automatisé | 8 | 5 | DAG ingestion→train ✓ ; DAGs vides, lock files |
-| CI/CD | 10 | 0 | Absent |
+| CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
 | Model Registry | 5 | 1 | Sélection par accuracy, pas de Registry |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
 | Monitoring ML | 8 | 0 | Absent |
 | Monitoring infra + alerting | 5 | 1 | Healthchecks Docker seulement |
 | Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
-| Sécurité | 5 | 1 | Secrets en clair, Fernet vide |
-| Gouvernance / doc | 4 | 0 | Pas de Model Card |
+| Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
+| Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 29** | **« ML avec quelques outils Ops » → MLOps basique en cours** |
+| **Total** | **100** | **≈ 42** | **MLOps basique consolidé — en route vers « bon projet »** |
 
 ### Feuille de route (par impact décroissant)
 
-1. **CI GitHub Actions** (lint + tests + build + scan) → +points immédiats, base de tout le reste.
+1. ✅ **CI/CD GitHub Actions + branches `dev`/`staging`/`prod`** — *fait* ; reste à durcir le lint,
+   ajouter un scan sécurité (bandit/trivy) et câbler le déploiement réel.
 2. **MLflow Model Registry + quality gate** (F1 > baseline) → sélection et rollback propres.
-3. **Validation de données bloquante** (Great Expectations/Pandera) + **tests data/modèle**.
+3. **Validation de données bloquante** (Great Expectations/Pandera) + **tests data/modèle** en CI.
 4. **Monitoring + drift + alerting** (Evidently/Prometheus) et **Model Card** (sujet sensible).
-5. **Externaliser les secrets**, `FERNET_KEY`, désactiver `LOAD_EXAMPLES`.
+5. **Brancher les secrets** (`.env` → `docker-compose.yml`), `FERNET_KEY` réelle, `LOAD_EXAMPLES=false`.
 6. **Data versioning + lineage** (digest dataset + git SHA loggués par run).
 
 > _Livrable MLOps — projet « Gravité des accidents » (dépôt `nov23_alt_iia`). Document interne d'équipe._
