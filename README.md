@@ -230,7 +230,7 @@ uniquement). Avant tout déploiement :
 
 ## Feuille de route MLOps
 
-L'auto-évaluation détaillée (≈ 50/100) et la feuille de route priorisée figurent dans
+L'auto-évaluation détaillée (≈ 51/100) et la feuille de route priorisée figurent dans
 [`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). La gouvernance du modèle est documentée dans
 [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) et [`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md).
 Prochaines priorités : MLflow Model Registry + quality gate, validation de données bloquante,
