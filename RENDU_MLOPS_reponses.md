@@ -182,6 +182,11 @@ Le service `gravity_classification` sélectionne dynamiquement, via `MlflowClien
     (`s3://mlflow/1/models/m-…/artifacts/model.pkl`) — fragile et non reproductible.
 - **Piste :** enregistrer le modèle au **Registry**, promouvoir en `Production` via une **quality gate**
   (F1 > baseline), et faire charger le serving par alias plutôt que par recherche d'accuracy.
+- 🐞 **Constaté en exécutant le pipeline complet :** aucun modèle n'est réellement produit (0 run MLflow).
+  Le script d'entraînement lit `No data found` au moment où il s'exécute (race avec la tâche de filtrage)
+  puis **avale l'exception**, si bien que le run n'est jamais loggué alors qu'Airflow affiche `success`.
+  Deux corrections nécessaires : (1) retirer le `try/except` masquant pour faire **échouer** franchement,
+  (2) ajouter une vraie **barrière « données prêtes »** entre filtrage et entraînement.
 
 ---
 
@@ -258,19 +263,26 @@ automatisé**.
 
 - **Surveillez-vous le modèle en production ?**
 
-✅ **En partie mis en place.**
+✅ **Mis en place et vérifié en conditions réelles.**
 
 - **Observabilité temps réel :** le service `gravity_classification` est instrumenté (Prometheus via
   `prometheus-fastapi-instrumentator` + métriques custom : distribution des classes prédites, probabilité,
-  latence d'inférence, erreurs). **Prometheus** scrape `/metrics` et **Grafana** affiche un dashboard
-  provisionné (débit, latence p95, prédictions par classe, erreurs).
+  latence d'inférence, erreurs). **Prometheus** scrape `/metrics` (vérifié `200 OK`) et **Grafana** (up,
+  `database: ok`) affiche un dashboard provisionné (débit, latence p95, prédictions par classe, erreurs).
 - **Drift ML :** endpoint `POST /monitoring/drift-report/` basé sur **Evidently** (data drift +
-  target drift), renvoyant `drift_share` / `dataset_drift` / `alert` + rapport HTML, exécuté
-  quotidiennement par le DAG Airflow `ml_monitoring_drift` (seuil `DRIFT_SHARE_THRESHOLD`).
+  target drift), exécuté quotidiennement par le DAG Airflow `ml_monitoring_drift` (seuil
+  `DRIFT_SHARE_THRESHOLD`). **Testé en réel** sur 783 lignes → `16/37 features en drift`,
+  `drift_share = 0.43 > 0.30` → **`alert: true`** + rapport HTML généré.
 
-- ⚠️ **Limites restantes :** la fenêtre « courante » du drift est un **proxy** (pas encore de journal des
-  features de prédiction en production) ; l'**alerting** se limite aux logs (à router vers Slack/PagerDuty
-  ou des règles Grafana) ; pas encore de suivi de performance online (nécessite les labels réels).
+- ⚠️ **Limites restantes :** la fenêtre « courante » du drift est un **proxy** (split de la table
+  d'entraînement — d'où un drift élevé — tant qu'il n'y a pas de journal des features de prédiction en
+  production) ; l'**alerting** se limite aux logs (à router vers Slack/PagerDuty ou des règles Grafana) ;
+  pas encore de suivi de **performance online** (nécessite les labels réels).
+- 🐞 **Souci découvert en exécutant la chaîne :** l'**entraînement RF échoue silencieusement** (0 run
+  MLflow, donc le serving renvoie « No valid model »). Le script `RandomForestClassifier.py` **avale son
+  exception** dans un `try/except` global et la tâche Airflow est malgré tout marquée `success`
+  (`No data found` → `Target column 'grav' not found`, race entre le filtre et l'entraînement). À corriger
+  (voir §8 et feuille de route).
 - ⚠️ **Enjeu spécifique :** sur un modèle de **gravité corporelle**, l'**évaluation d'équité par
   sous-population** reste à mener (voir Model Card §5).
 
@@ -338,10 +350,15 @@ classes, et désormais **documentation (`README`/`CONTRIBUTING`)** + **CI/CD Git
 **stratégie de branches `dev`/`staging`/`prod`**, plus un **monitoring ML** (Prometheus + Grafana +
 Evidently) et des **fiches de gouvernance** (Model Card, Datasheet).
 
-**Ce qui manque pour l'état de l'art :** Model Registry (champion/challenger + quality gate), validation
-de données bloquante, tests data/modèle, **alerting** effectif (les métriques/drift existent mais
-restent en logs) + suivi de performance online, rollback/canary, data versioning et lineage complète,
-branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
+**Bug bloquant découvert en exécutant la chaîne complète :** l'**entraînement RF échoue silencieusement**
+(exception avalée + race avec le filtrage) → **aucun modèle en MLflow**, donc le serving ne peut pas
+prédire. À corriger en priorité (voir §8/§13). Le reste de la chaîne (import, drift, monitoring) a bien
+tourné en réel.
+
+**Ce qui manque pour l'état de l'art :** correction de l'entraînement (échec franc + gate données),
+Model Registry (champion/challenger + quality gate), validation de données bloquante, tests data/modèle,
+**alerting** effectif (les métriques/drift existent mais restent en logs) + suivi de performance online,
+rollback/canary, data versioning et lineage complète, branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
 Card et le Datasheet existent désormais mais restent à compléter (métriques réelles, **analyse
 d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécurité et câbler le déploiement réel.
 
@@ -355,20 +372,23 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Data validation | 6 | 2 | Contrôle de schéma en warning, non bloquant |
 | Experiment tracking | 6 | 5 | MLflow + Postgres + MinIO ✓ ; accuracy seule |
 | Tests ML | 8 | 2 | CRUD seulement, pas de tests data/modèle |
-| Pipeline automatisé | 8 | 5 | DAG ingestion→train ✓ ; DAGs vides, lock files |
+| Pipeline automatisé | 8 | 5 | DAG ingestion→train ✓ ; mais entraînement en échec silencieux + race données (§8) |
 | CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
 | Model Registry | 5 | 1 | Sélection par accuracy, pas de Registry |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
-| Monitoring ML | 8 | 5 | Prometheus + Evidently (drift) + DAG ; fenêtre courante proxy, perf online absente |
+| Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
 | Monitoring infra + alerting | 5 | 3 | Prometheus + Grafana ✓ ; alerting encore en logs seulement |
 | Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
 | Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 49** | **MLOps en consolidation — approche du « bon projet MLOps »** |
+| **Total** | **100** | **≈ 50** | **MLOps en consolidation — approche du « bon projet MLOps »** |
 
 ### Feuille de route (par impact décroissant)
 
+0. 🐞 **URGENT — réparer l'entraînement** : retirer le `try/except` masquant de
+   `RandomForestClassifier.py` (échec franc) + ajouter une **barrière « données prêtes »** avant
+   l'entraînement, pour qu'un modèle soit réellement loggué en MLflow (sinon le serving ne prédit pas).
 1. ✅ **CI/CD GitHub Actions + branches `dev`/`staging`/`prod`** — *fait* ; reste à durcir le lint,
    ajouter un scan sécurité (bandit/trivy) et câbler le déploiement réel.
 2. **MLflow Model Registry + quality gate** (F1 > baseline) → sélection et rollback propres.

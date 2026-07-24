@@ -200,7 +200,17 @@ try:
         #     print("Waiting for other imports to finish...")
         #     time.sleep(10)    
         print("RandomForestClassifier script started")
+        # Data-ready gate: the filter task runs asynchronously, so wait until the
+        # training table is actually populated instead of failing on empty data.
         df = data_set()
+        waited = 0
+        while (df.empty or len(df) < 20) and waited < 300:
+            logging.info("Training data not ready yet (%s rows), waiting...", 0 if df.empty else len(df))
+            time.sleep(5)
+            waited += 5
+            df = data_set()
+        if df.empty or len(df) < 20:
+            raise RuntimeError(f"Training data not available after {waited}s (need >= 20 rows).")
         X, y, label_encoders = prepare_data(df)
         with mlflow.start_run(run_name="RandomForestClassifier_experiment"):
             weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
@@ -231,6 +241,8 @@ try:
 
 except Exception as e:
     logging.error(f"RandomForestClassifier import An error occurred: {e}\n{traceback.format_exc()}")
+    # Re-raise so the process exits non-zero and the caller (endpoint/Airflow) sees the failure.
+    raise
 
 
 
