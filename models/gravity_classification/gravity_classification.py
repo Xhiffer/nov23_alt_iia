@@ -100,86 +100,64 @@ best_model_info = None
 # -----------------------
 # Internal helpers
 # -----------------------
+MODEL_NAME = "gravity_classification"
+
+
 def _load_best_model_internal():
-    """Internal: load best MLflow model across experiments."""
+    """Load the production model: prefer the MLflow Registry 'champion' alias,
+    else fall back to the best non-failed run by accuracy."""
     global model, best_model_info
 
     mlflow.set_tracking_uri("http://mlflow:5000")
     client = MlflowClient()
-    experiment_names = ["random_forest_training"]
 
+    # 1) Preferred: MLflow Model Registry champion alias
+    try:
+        mv = client.get_model_version_by_alias(MODEL_NAME, "champion")
+        loaded_model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@champion")
+        run = client.get_run(mv.run_id)
+        model = loaded_model
+        best_model_info = {
+            "source": "registry:champion",
+            "model_name": MODEL_NAME,
+            "version": mv.version,
+            "run_id": mv.run_id,
+            "f1_macro": run.data.metrics.get("f1_macro"),
+            "accuracy": run.data.metrics.get("accuracy"),
+        }
+        print(f"✅ Loaded champion {MODEL_NAME} v{mv.version}")
+        return
+    except Exception as e:
+        print(f"⚠️ No champion alias available ({e}); falling back to best run by accuracy.")
+
+    # 2) Fallback: best non-failed run by accuracy in the training experiment
     best_run = None
     best_acc = -1.0
-    best_experiment = None
-    best_exp_id = None
-
-    # 🔍 Look for best finished run
-    for exp_name in experiment_names:
-        exp = client.get_experiment_by_name(exp_name)
-        if not exp:
-            continue
-
+    exp = client.get_experiment_by_name("random_forest_training")
+    if exp:
         runs = client.search_runs(
             experiment_ids=[exp.experiment_id],
             filter_string="attributes.status != 'FAILED'",
             order_by=["metrics.accuracy DESC"],
             max_results=1,
         )
-
         if runs:
-            run = runs[0]
-            acc = run.data.metrics.get("accuracy", 0)
-            if acc > best_acc:
-                best_acc = acc
-                best_run = run
-                best_experiment = exp_name
-                best_exp_id = exp.experiment_id
+            best_run = runs[0]
+            best_acc = best_run.data.metrics.get("accuracy", 0)
 
     if not best_run:
-        raise RuntimeError("❌ No valid model found in MLflow.")
+        raise RuntimeError("❌ No valid model found in MLflow (no champion alias and no run).")
 
     run_id = best_run.info.run_id
-    artifact_uri = best_run.info.artifact_uri
-
-    print(f"🔍 MLflow reports artifact_uri: {artifact_uri}")
-
-    # -------------------------
-    # Try to load the model dynamically from MLflow
-    # -------------------------
-    try:
-        print(f"📦 Trying to load model directly from MLflow (run_id={run_id})...")
-        loaded_model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
-        print(f"✅ Model successfully loaded from MLflow run {run_id}")
-    except Exception as e:
-        print(f"⚠️ Could not load model via run_id ({run_id}). Trying manual MinIO path...")
-        print(f"Original MLflow error: {e}")
-
-        # 🔧 Force path to your known valid artifact location in MinIO
-        fallback_path = "s3://mlflow/1/models/m-d1d3d692694e415ea5b106f9bf190f53/artifacts/model.pkl"
-        try:
-            print(f"📦 Forcing load from fallback path: {fallback_path}")
-            loaded_model = mlflow.sklearn.load_model(fallback_path)
-            print(f"✅ Model successfully loaded from fallback path.")
-        except Exception as e2:
-            raise RuntimeError(
-                f"❌ Failed to load MLflow model even from fallback path.\n"
-                f"Run ID: {run_id}\n"
-                f"Experiment: {best_experiment}\n"
-                f"Original error: {e}\n"
-                f"Fallback error: {e2}"
-            ) from e2
-
-    # Save info globally
+    loaded_model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
     model = loaded_model
     best_model_info = {
-        "experiment": best_experiment,
-        "experiment_id": best_exp_id,
+        "source": "run:best_accuracy",
         "run_id": run_id,
         "accuracy": best_acc,
-        "artifact_uri": artifact_uri,
+        "f1_macro": best_run.data.metrics.get("f1_macro"),
     }
-
-    print(f"✅ Model ready to use (accuracy={best_acc}, experiment={best_experiment})")
+    print(f"✅ Loaded fallback model run {run_id} (accuracy={best_acc})")
 
 
 

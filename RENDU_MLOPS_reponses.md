@@ -170,23 +170,22 @@ l'accuracy (voir §8).
 
 - **Comment le modèle de production est-il choisi ?**
 
-Le service `gravity_classification` sélectionne dynamiquement, via `MlflowClient.search_runs`, le run
-**non-`FAILED` d'accuracy maximale** de l'expérience `random_forest_training`, puis le charge par
-`runs:/{run_id}/model`.
+✅ **MLflow Model Registry + quality gate mis en place** (*fait*).
 
-- ⚠️ **Limites importantes :**
-  - Ce n'est **pas** le **MLflow Model Registry** (pas de versions `Staging`/`Production`, pas d'alias
-    `champion`/`challenger`).
-  - La sélection sur l'**accuracy** est discutable pour des classes déséquilibrées.
-  - Il subsiste un **chemin MinIO codé en dur** en fallback
-    (`s3://mlflow/1/models/m-…/artifacts/model.pkl`) — fragile et non reproductible.
-- **Piste :** enregistrer le modèle au **Registry**, promouvoir en `Production` via une **quality gate**
-  (F1 > baseline), et faire charger le serving par alias plutôt que par recherche d'accuracy.
-- 🐞 **Constaté en exécutant le pipeline complet :** aucun modèle n'est réellement produit (0 run MLflow).
-  Le script d'entraînement lit `No data found` au moment où il s'exécute (race avec la tâche de filtrage)
-  puis **avale l'exception**, si bien que le run n'est jamais loggué alors qu'Airflow affiche `success`.
-  Deux corrections nécessaires : (1) retirer le `try/except` masquant pour faire **échouer** franchement,
-  (2) ajouter une vraie **barrière « données prêtes »** entre filtrage et entraînement.
+- **À l'entraînement** (`RandomForestClassifier.py`) : le modèle est loggué (logged-model API MLflow 3.x),
+  **enregistré** au Registry sous `gravity_classification`, et une **quality gate** décide de l'alias :
+  promotion en **`champion`** seulement si `f1_macro ≥ F1_PROMOTION_THRESHOLD` (0.55 par défaut) **et** au
+  moins aussi bon que le champion courant ; sinon **`challenger`**. Le `f1_macro` est désormais loggué en
+  plus de l'accuracy.
+- **Au serving** (`gravity_classification.py`) : le modèle est chargé par **alias**
+  (`models:/gravity_classification@champion`), avec repli sur le meilleur run par accuracy. Le **chemin
+  MinIO codé en dur a été supprimé**.
+- **Vérifié en réel :** entraînement → version 2 enregistrée → `champion → v2` → le serving répond
+  `source: registry:champion`, `version: 2`, `f1_macro ≈ 0.70`, `accuracy ≈ 0.80`.
+
+- ⚠️ **Limites restantes :** pas encore de stage `Staging`/promotion multi-étapes ni de **rollback
+  automatisé** via le Registry (le repli champion→ancienne version est manuel) ; la baseline du gate est
+  un seuil fixe (pas de comparaison à un DummyClassifier).
 
 ---
 
@@ -347,17 +346,19 @@ l'exposition.
 ingestion → training, experiment tracking MLflow avec stores Postgres + MinIO, serving FastAPI propre
 avec sélection dynamique du modèle, preprocessing centralisé et déterministe, gestion du déséquilibre de
 classes, et désormais **documentation (`README`/`CONTRIBUTING`)** + **CI/CD GitHub Actions** avec une
-**stratégie de branches `dev`/`staging`/`prod`**, plus un **monitoring ML** (Prometheus + Grafana +
-Evidently) et des **fiches de gouvernance** (Model Card, Datasheet).
+**stratégie de branches `dev`/`staging`/`prod`**, un **monitoring ML** (Prometheus + Grafana +
+Evidently), des **fiches de gouvernance** (Model Card, Datasheet), et un **Model Registry avec quality
+gate champion/challenger** (serving chargé par alias).
 
 **Bug bloquant découvert puis corrigé :** l'entraînement RF échouait silencieusement (exception avalée +
 race avec le filtrage) → aucun modèle en MLflow. **✅ Résolu** : endpoint bloquant + échec franc + gate
 « données prêtes ». La chaîne complète (import → filtre → **entraînement → run MLflow → serving charge le
 modèle**) tourne désormais en réel (accuracy ≈ 0.80).
 
-**Ce qui manque pour l'état de l'art :** Model Registry (champion/challenger + quality gate), validation de données bloquante, tests data/modèle,
+**Ce qui manque pour l'état de l'art :** validation de données bloquante, tests data/modèle,
 **alerting** effectif (les métriques/drift existent mais restent en logs) + suivi de performance online,
-rollback/canary, data versioning et lineage complète, branchement effectif des secrets (`.env` → compose). Côté gouvernance, la Model
+**rollback automatisé**/canary, data versioning et lineage complète, branchement effectif des secrets
+(`.env` → compose). Côté gouvernance, la Model
 Card et le Datasheet existent désormais mais restent à compléter (métriques réelles, **analyse
 d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécurité et câbler le déploiement réel.
 
@@ -373,7 +374,7 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Tests ML | 8 | 2 | CRUD seulement, pas de tests data/modèle |
 | Pipeline automatisé | 8 | 6 | DAG ingestion→train→modèle ✓ (échec silencieux + race **corrigés**) ; reste orchestration à durcir |
 | CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
-| Model Registry | 5 | 1 | Sélection par accuracy, pas de Registry |
+| Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias ✓ ; pas de rollback auto/staging |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
 | Monitoring infra + alerting | 5 | 3 | Prometheus + Grafana ✓ ; alerting encore en logs seulement |
@@ -381,7 +382,7 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 51** | **MLOps en consolidation — approche du « bon projet MLOps »** |
+| **Total** | **100** | **≈ 54** | **Bon projet MLOps en construction** |
 
 ### Feuille de route (par impact décroissant)
 
@@ -391,7 +392,8 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
    MLflow réel est loggué (`accuracy ≈ 0.80`) et le serving `gravity_classification` le charge (HTTP 200).
 1. ✅ **CI/CD GitHub Actions + branches `dev`/`staging`/`prod`** — *fait* ; reste à durcir le lint,
    ajouter un scan sécurité (bandit/trivy) et câbler le déploiement réel.
-2. **MLflow Model Registry + quality gate** (F1 > baseline) → sélection et rollback propres.
+2. ✅ **MLflow Model Registry + quality gate** — *fait* (champion/challenger sur `f1_macro`, serving par
+   alias, chemin MinIO codé en dur supprimé) ; reste le **rollback automatisé** et un stage `Staging`.
 3. **Validation de données bloquante** (Great Expectations/Pandera) + **tests data/modèle** en CI.
 4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; reste à câbler l'**alerting**
    (Slack/PagerDuty ou règles Grafana) et le suivi de **performance online**.

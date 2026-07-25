@@ -18,6 +18,7 @@ logging.basicConfig(
 try:
     import mlflow
     import mlflow.sklearn
+    from mlflow.tracking import MlflowClient
     mlflow.set_tracking_uri("http://mlflow:5000")
     mlflow.set_experiment("random_forest_training")
 
@@ -25,7 +26,7 @@ try:
     from sklearn.utils.class_weight import compute_class_weight
     from sklearn.preprocessing import StandardScaler, LabelEncoder
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+    from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score
     sys.path.append("/app")
     from routers.ai_training_model_data_router import get_all_ai_training_data
     import pandas as pd
@@ -159,6 +160,7 @@ try:
         y_pred_train = model.predict(X_train)
         y_pred_test = model.predict(X_test)
         mlflow.log_metric("accuracy", accuracy_score(y_test, y_pred_test))
+        mlflow.log_metric("f1_macro", f1_score(y_test, y_pred_test, average="macro"))
         # Evaluation
         logging.info("="*60)
         logging.info("TRAINING SET PERFORMANCE")
@@ -188,8 +190,53 @@ try:
         logging.info(f"\n{feature_importance.head(10).to_string(index=False)}")
 
         return model, X_train, X_test, y_train, y_test
-    
-    if __name__ == "__main__":  
+
+    MODEL_NAME = "gravity_classification"
+    F1_THRESHOLD = float(os.environ.get("F1_PROMOTION_THRESHOLD", "0.55"))
+
+    def _register_and_gate(source, run_id, candidate_f1):
+        """Register the model in the MLflow Registry and set a champion/challenger
+        alias through a quality gate: promote to 'champion' only if it clears the F1
+        threshold AND is at least as good as the current champion; otherwise 'challenger'.
+        `source` is the logged-model URI returned by `log_model` (MLflow 3.x)."""
+        client = MlflowClient()
+        try:
+            client.create_registered_model(MODEL_NAME)
+        except Exception:
+            pass  # already exists
+
+        mv = client.create_model_version(
+            name=MODEL_NAME, source=source, run_id=run_id
+        )
+        client.set_model_version_tag(MODEL_NAME, mv.version, "f1_macro", f"{candidate_f1:.4f}")
+
+        if candidate_f1 < F1_THRESHOLD:
+            client.set_registered_model_alias(MODEL_NAME, "challenger", mv.version)
+            logging.warning(
+                "Quality gate FAILED: f1_macro=%.4f < %.2f -> v%s tagged 'challenger' (not promoted).",
+                candidate_f1, F1_THRESHOLD, mv.version,
+            )
+            return mv.version, False
+
+        champion_f1 = None
+        try:
+            champ = client.get_model_version_by_alias(MODEL_NAME, "champion")
+            champion_f1 = client.get_run(champ.run_id).data.metrics.get("f1_macro")
+        except Exception:
+            champion_f1 = None
+
+        if champion_f1 is None or candidate_f1 >= champion_f1:
+            client.set_registered_model_alias(MODEL_NAME, "champion", mv.version)
+            logging.info("Promoted v%s to CHAMPION (f1=%.4f, prev champion=%s).",
+                         mv.version, candidate_f1, champion_f1)
+            return mv.version, True
+
+        client.set_registered_model_alias(MODEL_NAME, "challenger", mv.version)
+        logging.info("v%s kept CHALLENGER (f1=%.4f < champion %.4f).",
+                     mv.version, candidate_f1, champion_f1)
+        return mv.version, False
+
+    if __name__ == "__main__":
 
         """check if datafilter done correctly"""
         # while not check_if_filtre_data_exist():
@@ -233,9 +280,17 @@ try:
                 mlflow.log_param(param, value)
 
 
-            # Log model
-            mlflow.sklearn.log_model(model, artifact_path="model")
+            # Log model (MLflow 3.x logged-model API returns a ModelInfo with model_uri)
+            model_info = mlflow.sklearn.log_model(model, name="model")
 
+            # Register to the MLflow Model Registry + quality gate (champion/challenger)
+            run_id = mlflow.active_run().info.run_id
+            candidate_f1 = f1_score(y_test, model.predict(X_test), average="macro")
+            version, promoted = _register_and_gate(model_info.model_uri, run_id, candidate_f1)
+            logging.info(
+                "Registry: %s v%s (f1_macro=%.4f) -> %s",
+                MODEL_NAME, version, candidate_f1, "champion" if promoted else "challenger",
+            )
 
             logging.info("Model and metrics logged to MLflow successfully.")
 
