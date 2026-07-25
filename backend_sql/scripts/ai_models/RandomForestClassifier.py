@@ -258,6 +258,9 @@ try:
             df = data_set()
         if df.empty or len(df) < 20:
             raise RuntimeError(f"Training data not available after {waited}s (need >= 20 rows).")
+        # Blocking data validation (Pandera): fail loudly before training on bad data.
+        from scripts.data_validation import validate_training_data
+        validate_training_data(df)
         X, y, label_encoders = prepare_data(df)
         with mlflow.start_run(run_name="RandomForestClassifier_experiment"):
             weights = compute_class_weight('balanced', classes=np.unique(y), y=y)

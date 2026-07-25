@@ -369,9 +369,9 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Git + qualité logicielle | 5 | 4 | README + CONTRIBUTING + branches `dev`/`staging`/`prod` + PR ; manque tags/releases, protections |
 | Reproductibilité | 8 | 6 | Docker ✓, seeds ✓, README + `.env.example` ✓ ; images non taguées |
 | Data versioning | 7 | 1 | Pas de DVC ni digest dataset |
-| Data validation | 6 | 2 | Contrôle de schéma en warning, non bloquant |
+| Data validation | 6 | 5 | Schéma **Pandera bloquant** avant entraînement + tests ; reste validation à l'ingestion |
 | Experiment tracking | 6 | 5 | MLflow + Postgres + MinIO ✓ ; accuracy seule |
-| Tests ML | 8 | 2 | CRUD seulement, pas de tests data/modèle |
+| Tests ML | 8 | 4 | CRUD + tests data (validation Pandera) + preprocessing ; reste tests modèle/serving |
 | Pipeline automatisé | 8 | 6 | DAG ingestion→train→modèle ✓ (échec silencieux + race **corrigés**) ; reste orchestration à durcir |
 | CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
 | Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias ✓ ; pas de rollback auto/staging |
@@ -382,7 +382,7 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 54** | **Bon projet MLOps en construction** |
+| **Total** | **100** | **≈ 59** | **Bon projet MLOps en construction** |
 
 ### Feuille de route (par impact décroissant)
 
@@ -394,7 +394,8 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
    ajouter un scan sécurité (bandit/trivy) et câbler le déploiement réel.
 2. ✅ **MLflow Model Registry + quality gate** — *fait* (champion/challenger sur `f1_macro`, serving par
    alias, chemin MinIO codé en dur supprimé) ; reste le **rollback automatisé** et un stage `Staging`.
-3. **Validation de données bloquante** (Great Expectations/Pandera) + **tests data/modèle** en CI.
+3. ✅ **Validation de données bloquante (Pandera)** + **tests data** en CI — *fait* (schéma appliqué
+   avant l'entraînement, 5 tests) ; reste les tests **modèle/serving** et la validation à l'ingestion.
 4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; reste à câbler l'**alerting**
    (Slack/PagerDuty ou règles Grafana) et le suivi de **performance online**.
 5. **Brancher les secrets** (`.env` → `docker-compose.yml`), `FERNET_KEY` réelle, `LOAD_EXAMPLES=false`.
