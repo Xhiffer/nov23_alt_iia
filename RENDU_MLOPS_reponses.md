@@ -297,12 +297,21 @@ automatisé**.
 - **Le ré-entraînement est-il continu ? La lineage est-elle traçable ?**
 
 Le ré-entraînement est **déclenché à la demande** (fin du DAG `import_csv_to_sql`), pas sur événement
-(drift/planning). La traçabilité repose sur **MLflow** (run → params → métriques → artefact), mais la
-chaîne **prédiction → run → dataset → données brutes → commit git** n'est pas complète (ni git commit
-loggué au run, ni version de dataset, ni OpenLineage).
+(drift/planning).
 
-- **Pistes :** logguer le **git SHA** et le **digest dataset** dans chaque run ; déclencher un CT
-  **sous quality gate** (jamais de déploiement aveugle).
+✅ **Lineage renforcé (nouveau) :** chaque run MLflow est désormais tagué avec le **SHA du commit git**
+(`git_sha`, injecté via `GIT_COMMIT_SHA`) et une **empreinte déterministe du dataset**
+(`dataset_digest` = SHA-256 du contenu du DataFrame, + `dataset_rows/cols/columns`) — voir
+`backend_sql/scripts/lineage.py` (6 tests unitaires). Deux runs au même `dataset_digest`/`git_sha`
+partent des mêmes données et du même code (avec `random_state=42` → reproductibilité).
+
+✅ **Versioning des données brutes (DVC) :** runbook complet **DVC + MinIO** dans
+[`docs/DATA_VERSIONING.md`](docs/DATA_VERSIONING.md) (`.dvcignore` ajouté, remote S3 sur le MinIO
+existant). Reste l'exécution opérateur `dvc init/add/push` (nécessite le CLI `dvc[s3]` + MinIO démarré),
+non réalisée ici car le démon Docker était arrêté.
+
+- **Reste :** relier le digest au **snapshot DVC** exact, déclencher un CT **sous quality gate**
+  (jamais de déploiement aveugle), et exposer la chaîne complète prédiction → run → dataset.
 
 ---
 
@@ -377,7 +386,7 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | --- | ---: | ---: | --- |
 | Git + qualité logicielle | 5 | 4 | README + CONTRIBUTING + branches `dev`/`staging`/`prod` + PR ; manque tags/releases, protections |
 | Reproductibilité | 8 | 6 | Docker ✓, seeds ✓, README + `.env.example` ✓ ; images non taguées |
-| Data versioning | 7 | 1 | Pas de DVC ni digest dataset |
+| Data versioning | 7 | 3 | **Lineage par run** (digest dataset + git SHA dans MLflow) ✓ + **runbook DVC/MinIO** ; reste à exécuter `dvc add`/`push` (CLI + MinIO up) |
 | Data validation | 6 | 5 | Schéma **Pandera bloquant** avant entraînement + tests ; reste validation à l'ingestion |
 | Experiment tracking | 6 | 5 | MLflow + Postgres + MinIO ✓ ; accuracy seule |
 | Tests ML | 8 | 5 | CRUD + tests data (Pandera) + preprocessing + **smoke modèle** ; reste tests serving/contract |
@@ -387,11 +396,11 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
 | Monitoring infra + alerting | 5 | 4 | Prometheus + Grafana ✓ ; **alerting drift via webhook** (Slack-compatible) + tests ✓ ; reste règles Grafana infra |
-| Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
+| Lineage | 5 | 4 | Chaque run tague **dataset_digest + git_sha** (+ shape/colonnes) ✓ ; reste à relier au versioning DVC effectif |
 | Sécurité | 5 | 4 | Secrets externalisés (.env, compose en `${VAR}`) + Fernet réelle + LOAD_EXAMPLES=false ; reste TLS/auth/scan |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 64** | **Bon projet MLOps** |
+| **Total** | **100** | **≈ 68** | **Bon projet MLOps** |
 
 ### Feuille de route (par impact décroissant)
 

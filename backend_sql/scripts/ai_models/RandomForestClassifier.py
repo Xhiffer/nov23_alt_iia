@@ -278,10 +278,19 @@ try:
 
             model, X_train, X_test, y_train, y_test = train_random_forest(X, y, default_params)
 
-            # Log parameters    
+            # Log parameters
             for param, value in default_params.items():
                 mlflow.log_param(param, value)
 
+            # Lineage : empreinte déterministe du dataset + SHA git du code (reproductibilité).
+            from scripts.lineage import build_lineage
+
+            lineage = build_lineage(df)
+            for key, value in lineage.items():
+                mlflow.set_tag(key, value)
+            mlflow.log_param("dataset_digest", lineage["dataset_digest"])
+            mlflow.log_param("git_sha", lineage["git_sha"])
+            logging.info("Lineage: %s", lineage)
 
             # Log model (MLflow 3.x logged-model API returns a ModelInfo with model_uri)
             model_info = mlflow.sklearn.log_model(model, name="model")

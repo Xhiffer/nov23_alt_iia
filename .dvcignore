@@ -1,0 +1,5 @@
+# Fichiers ignorés par DVC lors du hashing des répertoires suivis.
+# https://dvc.org/doc/user-guide/project-structure/dvcignore-files
+*.tmp
+*.log
+__pycache__/

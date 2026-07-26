@@ -58,6 +58,9 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      # Provenance : injecté pour le lineage des runs MLflow (SHA du code). Vide -> "unknown".
+      GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
     command: ["/app/wait-for-db.sh", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
