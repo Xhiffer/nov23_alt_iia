@@ -273,10 +273,15 @@ automatisé**.
   `DRIFT_SHARE_THRESHOLD`). **Testé en réel** sur 783 lignes → `16/37 features en drift`,
   `drift_share = 0.43 > 0.30` → **`alert: true`** + rapport HTML généré.
 
+- ✅ **Alerting effectif (nouveau) :** quand `drift_share` dépasse le seuil, `run_drift_report` appelle
+  `send_drift_alert` (`scripts/monitoring/notify.py`) qui **pousse une notification vers un webhook**
+  entrant compatible Slack/Mattermost/Discord (`ALERT_WEBHOOK_URL`). No-op si non configuré ; toute erreur
+  réseau est journalisée sans jamais faire échouer le pipeline. Réponse enrichie du champ `alert_sent`.
+  Couvert par 4 tests unitaires (no-op / payload / erreur réseau avalée / format), vérifiés hors réseau.
 - ⚠️ **Limites restantes :** la fenêtre « courante » du drift est un **proxy** (split de la table
   d'entraînement — d'où un drift élevé — tant qu'il n'y a pas de journal des features de prédiction en
-  production) ; l'**alerting** se limite aux logs (à router vers Slack/PagerDuty ou des règles Grafana) ;
-  pas encore de suivi de **performance online** (nécessite les labels réels).
+  production) ; l'alerting couvre le **drift** (pas encore de règles Grafana sur latence/erreurs) ; pas
+  encore de suivi de **performance online** (nécessite les labels réels).
 - 🐞 **Souci découvert en exécutant la chaîne :** l'**entraînement RF échoue silencieusement** (0 run
   MLflow, donc le serving renvoie « No valid model »). Le script `RandomForestClassifier.py` **avale son
   exception** dans un `try/except` global et la tâche Airflow est malgré tout marquée `success`
@@ -381,12 +386,12 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias ✓ ; pas de rollback auto/staging |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
-| Monitoring infra + alerting | 5 | 3 | Prometheus + Grafana ✓ ; alerting encore en logs seulement |
+| Monitoring infra + alerting | 5 | 4 | Prometheus + Grafana ✓ ; **alerting drift via webhook** (Slack-compatible) + tests ✓ ; reste règles Grafana infra |
 | Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
 | Sécurité | 5 | 4 | Secrets externalisés (.env, compose en `${VAR}`) + Fernet réelle + LOAD_EXAMPLES=false ; reste TLS/auth/scan |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 63** | **Bon projet MLOps** |
+| **Total** | **100** | **≈ 64** | **Bon projet MLOps** |
 
 ### Feuille de route (par impact décroissant)
 
@@ -400,8 +405,9 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
    alias, chemin MinIO codé en dur supprimé) ; reste le **rollback automatisé** et un stage `Staging`.
 3. ✅ **Validation de données bloquante (Pandera)** + **tests data** en CI — *fait* (schéma appliqué
    avant l'entraînement, 5 tests) ; reste les tests **modèle/serving** et la validation à l'ingestion.
-4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; reste à câbler l'**alerting**
-   (Slack/PagerDuty ou règles Grafana) et le suivi de **performance online**.
+4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; **alerting drift câblé** (webhook
+   Slack-compatible via `ALERT_WEBHOOK_URL`, no-op si absent) ; reste les **règles Grafana** sur
+   latence/erreurs et le suivi de **performance online** (labels réels).
 5. ✅ **Secrets externalisés** (`.env` → `docker-compose.yml` en `${VAR}`, `FERNET_KEY` réelle,
    `LOAD_EXAMPLES=false`) — *fait* ; reste TLS + auth API + scan (bandit/trivy) en CI.
 6. **Data versioning + lineage** (digest dataset + git SHA loggués par run).

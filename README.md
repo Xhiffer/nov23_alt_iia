@@ -182,9 +182,13 @@ Deux couches complémentaires :
   (`backend_sql/monitoring_reports/`). Le seuil d'alerte est réglable via `DRIFT_SHARE_THRESHOLD`. Le DAG
   Airflow `ml_monitoring_drift` l'exécute quotidiennement.
 
+Quand `drift_share` dépasse `DRIFT_SHARE_THRESHOLD`, une **alerte est poussée vers un webhook** entrant
+compatible Slack/Mattermost/Discord (`ALERT_WEBHOOK_URL` ; no-op si non défini, échec réseau non bloquant)
+— voir `backend_sql/scripts/monitoring/notify.py`.
+
 > Limites : la fenêtre « courante » du drift est un **proxy** (dernières lignes de la table
-> d'entraînement) tant qu'un journal des features de prédiction en production n'existe pas ; l'alerting se
-> limite aux logs (à router vers Slack/PagerDuty ou des règles Grafana).
+> d'entraînement) tant qu'un journal des features de prédiction en production n'existe pas ; l'alerting
+> couvre le drift (reste à ajouter des règles Grafana sur latence/erreurs).
 
 ## Tests
 
@@ -230,7 +234,7 @@ uniquement). Avant tout déploiement :
 
 ## Feuille de route MLOps
 
-L'auto-évaluation détaillée (≈ 63/100) et la feuille de route priorisée figurent dans
+L'auto-évaluation détaillée (≈ 64/100) et la feuille de route priorisée figurent dans
 [`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). La gouvernance du modèle est documentée dans
 [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) et [`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md).
 Prochaines priorités : MLflow Model Registry + quality gate, validation de données bloquante,

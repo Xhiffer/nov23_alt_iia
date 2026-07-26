@@ -112,4 +112,8 @@ def run_drift_report(reference_frac: float = 0.7, current_window: int | None = N
             drift_share * 100,
             DRIFT_SHARE_THRESHOLD * 100,
         )
+        # Alerting effectif : notifie le webhook configuré (no-op si ALERT_WEBHOOK_URL absent).
+        from scripts.monitoring.notify import send_drift_alert
+
+        summary["alert_sent"] = send_drift_alert(summary)
     return summary
