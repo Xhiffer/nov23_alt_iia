@@ -375,9 +375,9 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Data versioning | 7 | 1 | Pas de DVC ni digest dataset |
 | Data validation | 6 | 5 | Schéma **Pandera bloquant** avant entraînement + tests ; reste validation à l'ingestion |
 | Experiment tracking | 6 | 5 | MLflow + Postgres + MinIO ✓ ; accuracy seule |
-| Tests ML | 8 | 4 | CRUD + tests data (validation Pandera) + preprocessing ; reste tests modèle/serving |
+| Tests ML | 8 | 5 | CRUD + tests data (Pandera) + preprocessing + **smoke modèle** ; reste tests serving/contract |
 | Pipeline automatisé | 8 | 6 | DAG ingestion→train→modèle ✓ (échec silencieux + race **corrigés**) ; reste orchestration à durcir |
-| CI/CD | 10 | 6 | CI (lint+tests+docker) + CD (build/push GHCR) ✓ ; lint non bloquant, deploy placeholder, protections à régler |
+| CI/CD | 10 | 7 | CI (lint + **scan bandit** + tests data/modèle + docker) + CD GHCR ✓ ; lint/scan non bloquants, deploy placeholder |
 | Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias ✓ ; pas de rollback auto/staging |
 | Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
@@ -386,7 +386,7 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Sécurité | 5 | 4 | Secrets externalisés (.env, compose en `${VAR}`) + Fernet réelle + LOAD_EXAMPLES=false ; reste TLS/auth/scan |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 61** | **Bon projet MLOps** |
+| **Total** | **100** | **≈ 63** | **Bon projet MLOps** |
 
 ### Feuille de route (par impact décroissant)
 

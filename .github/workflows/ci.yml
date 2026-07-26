@@ -28,6 +28,21 @@ jobs:
         continue-on-error: true
         run: ruff check .
 
+  security:
+    name: Security scan (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      - name: Bandit scan
+        # Non-blocking for now: surface findings without failing the build.
+        continue-on-error: true
+        run: bandit -r backend_sql api_gateway models -x '*/pytests/*,*/mlruns/*' || true
+
   test:
     name: Tests (pytest)
     runs-on: ubuntu-latest
