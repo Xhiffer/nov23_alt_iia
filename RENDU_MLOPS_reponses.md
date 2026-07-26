@@ -316,9 +316,13 @@ DAGs d'exemple.
 - ✅ **Premier pas fait :** un **`.env.example`** documente désormais toutes les variables à externaliser
   (avec des valeurs `change_me` et la commande de génération de `FERNET_KEY`), et le `README` rappelle de
   remplacer les identifiants par défaut avant tout déploiement.
-- ⚠️ **Reste à faire :** le `docker-compose.yml` **n'est pas encore branché sur `.env`** (les secrets y
-  restent en clair). Prochaine étape : `env_file`/`${VAR}` dans le compose, `FERNET_KEY` réelle,
-  `LOAD_EXAMPLES=false`, TLS + auth API, et un **scan** (bandit / trivy) dans la CI.
+- ✅ **Fait :** le `docker-compose.yml` est **entièrement branché sur `.env`** (`${VAR}` pour db, minio,
+  pgadmin, AWS, URI MLflow, base + admin Airflow), avec une **`FERNET_KEY` réelle** propagée à tous les
+  services Airflow et `LOAD_EXAMPLES=false`. Plus aucun secret en clair dans le fichier versionné ;
+  `docker compose config` valide la résolution. Un vrai `.env` (gitignoré) reprend les valeurs courantes.
+- ⚠️ **Reste :** TLS + authentification sur les API exposées, et un **scan** (bandit / trivy) dans la CI.
+  Note d'application : après un `docker compose up` avec la nouvelle `FERNET_KEY`, recréer la connexion
+  Airflow `backend_sql` si nécessaire.
 
 ---
 
@@ -379,10 +383,10 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
 | Monitoring infra + alerting | 5 | 3 | Prometheus + Grafana ✓ ; alerting encore en logs seulement |
 | Lineage | 5 | 2 | MLflow partiel, pas de commit/dataset |
-| Sécurité | 5 | 2 | `.env.example` ✓ ; compose pas encore branché, Fernet vide |
+| Sécurité | 5 | 4 | Secrets externalisés (.env, compose en `${VAR}`) + Fernet réelle + LOAD_EXAMPLES=false ; reste TLS/auth/scan |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 59** | **Bon projet MLOps en construction** |
+| **Total** | **100** | **≈ 61** | **Bon projet MLOps** |
 
 ### Feuille de route (par impact décroissant)
 
@@ -398,7 +402,8 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
    avant l'entraînement, 5 tests) ; reste les tests **modèle/serving** et la validation à l'ingestion.
 4. ✅ **Monitoring ML** (Prometheus + Grafana + Evidently) — *fait* ; reste à câbler l'**alerting**
    (Slack/PagerDuty ou règles Grafana) et le suivi de **performance online**.
-5. **Brancher les secrets** (`.env` → `docker-compose.yml`), `FERNET_KEY` réelle, `LOAD_EXAMPLES=false`.
+5. ✅ **Secrets externalisés** (`.env` → `docker-compose.yml` en `${VAR}`, `FERNET_KEY` réelle,
+   `LOAD_EXAMPLES=false`) — *fait* ; reste TLS + auth API + scan (bandit/trivy) en CI.
 6. **Data versioning + lineage** (digest dataset + git SHA loggués par run).
 
 > _Livrable MLOps — projet « Gravité des accidents » (dépôt `nov23_alt_iia`). Document interne d'équipe._
