@@ -2,8 +2,6 @@ from fastapi.testclient import TestClient
 import sys
 import os
 
-import pytest
-
 # Allow import from root
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -11,68 +9,56 @@ from main import app
 
 client = TestClient(app)
 
-# STALE TEST — le payload ci-dessous (input_data/label/source/added_date) provient
-# d'un template différent et ne correspond pas au schéma actuel
-# `AITrainingModelDataCreate` (id_accident requis + features BAAC), d'où un 422
-# légitime. À réécrire contre le vrai schéma (avec un accident parent pour la FK).
-pytestmark = pytest.mark.skip(reason="Stale payload vs current AITrainingModelData schema; to be rewritten")
+# Payload conforme au schéma actuel `AITrainingModelDataCreate` : `id_accident`
+# est requis (BigInteger, sans FK), les features BAAC sont optionnelles.
+BASE_PAYLOAD = {
+    "id_accident": 999001,
+    "id_usager": 42,
+    "id_vehicule": 7,
+    "grav": 1,
+    "sexe": 1,
+    "manv": 2,
+    "mois": 6,
+    "an": 2023,
+    "dep": "75",
+    "pr": "12",
+}
 
 
 def test_crud_ai_training_model_data():
     # Step 1: Create
-    create_response = client.post(
-        "/ai-training-data/",
-        json={
-            "input_data": "sample text",
-            "label": "positive",
-            "source": "unit-test",
-            "added_date": "2025-01-01T00:00:00"
-        }
-    )
-    assert create_response.status_code == 200
+    create_response = client.post("/ai-training-data/", json=BASE_PAYLOAD)
+    assert create_response.status_code == 200, create_response.text
     created = create_response.json()
     record_id = created["id"]
-    print("Created record:", created)
-    assert created["input_data"] == "sample text"
-    assert created["label"] == "positive"
+    assert created["id_accident"] == 999001
+    assert created["grav"] == 1
 
     # Step 2: Read (GET)
     get_response = client.get(f"/ai-training-data/{record_id}")
     assert get_response.status_code == 200
     record = get_response.json()
-    assert record["input_data"] == "sample text"
+    assert record["id_accident"] == 999001
+    assert record["sexe"] == 1
 
     # Step 3: Update
-    update_response = client.put(
-        f"/ai-training-data/{record_id}",
-        json={
-            "input_data": "updated text",
-            "label": "negative",
-            "source": "unit-test-updated",
-            "added_date": "2025-02-01T12:00:00"
-        }
-    )
-    assert update_response.status_code == 200
+    updated_payload = {**BASE_PAYLOAD, "grav": 0, "sexe": 2, "manv": 3}
+    update_response = client.put(f"/ai-training-data/{record_id}", json=updated_payload)
+    assert update_response.status_code == 200, update_response.text
     updated = update_response.json()
-    print("Updated record:", updated)
-    assert updated["input_data"] == "updated text"
-    assert updated["label"] == "negative"
+    assert updated["grav"] == 0
+    assert updated["sexe"] == 2
 
     # Step 4: Read updated
     get_updated = client.get(f"/ai-training-data/{record_id}")
     assert get_updated.status_code == 200
-    assert get_updated.json()["input_data"] == "updated text"
+    assert get_updated.json()["grav"] == 0
 
     # Step 5: Delete
     delete_response = client.delete(f"/ai-training-data/{record_id}")
     assert delete_response.status_code == 200
-    assert (
-        delete_response.json().get("detail", "").lower()
-        == "ai training model data deleted successfully"
-        or "success" in delete_response.json().get("detail", "").lower()
-    )
+    assert "success" in delete_response.json().get("detail", "").lower()
 
     # Step 6: Final check
     final_get = client.get(f"/ai-training-data/{record_id}")
     assert final_get.status_code == 404
-    print("Final GET after deletion correctly returned 404.")
