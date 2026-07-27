@@ -219,13 +219,20 @@ try:
             return mv.version, False
 
         champion_f1 = None
+        current_champion_version = None
         try:
             champ = client.get_model_version_by_alias(MODEL_NAME, "champion")
+            current_champion_version = champ.version
             champion_f1 = client.get_run(champ.run_id).data.metrics.get("f1_macro")
         except Exception:
             champion_f1 = None
 
         if champion_f1 is None or candidate_f1 >= champion_f1:
+            # Keep a rollback target: the outgoing champion becomes 'previous_champion'.
+            if current_champion_version is not None:
+                client.set_registered_model_alias(
+                    MODEL_NAME, "previous_champion", current_champion_version
+                )
             client.set_registered_model_alias(MODEL_NAME, "champion", mv.version)
             logging.info("Promoted v%s to CHAMPION (f1=%.4f, prev champion=%s).",
                          mv.version, candidate_f1, champion_f1)

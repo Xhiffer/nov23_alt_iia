@@ -183,9 +183,10 @@ l'accuracy (voir §8).
 - **Vérifié en réel :** entraînement → version 2 enregistrée → `champion → v2` → le serving répond
   `source: registry:champion`, `version: 2`, `f1_macro ≈ 0.70`, `accuracy ≈ 0.80`.
 
-- ⚠️ **Limites restantes :** pas encore de stage `Staging`/promotion multi-étapes ni de **rollback
-  automatisé** via le Registry (le repli champion→ancienne version est manuel) ; la baseline du gate est
-  un seuil fixe (pas de comparaison à un DummyClassifier).
+- ⚠️ **Limites restantes :** pas encore de stage `Staging`/promotion multi-étapes ; le **rollback** via
+  Registry existe désormais (`POST /rollback_champion` + alias `previous_champion`, voir §12) mais reste
+  **déclenché manuellement** ; la baseline du gate est un seuil fixe (pas de comparaison à un
+  DummyClassifier).
 
 ---
 
@@ -249,12 +250,21 @@ véhicules, resultat_ai, ai_training_data) et un `pytest.py` dans `gravity_class
 
 - **Gérez-vous canary / shadow / rollback ?**
 
-**Non** à ce stade. Le passage d'un modèle à l'autre est **brutal** (le serving prend le meilleur run au
-prochain `/load_best_model`). Il n'y a ni **canary**, ni **shadow deployment**, ni **rollback
-automatisé**.
+✅ **Canary et rollback en place (nouveau), vérifiés sur la stack.**
 
-- **Atténuation :** MLflow conserve tous les runs, donc un retour arrière est *possible* manuellement
-  (pointer un `run_id` précédent). **Piste :** rollback en une commande via alias Registry.
+- **Canary :** le service `gravity_classification` charge le **challenger** en plus du champion et route
+  `CANARY_TRAFFIC_PCT`% du trafic vers lui (0 = désactivé). Logique de routing pure et testée
+  (`models/gravity_classification/canary.py`, 6 tests ; part mesurée ≈ 20,6 % pour un réglage à 20 %).
+  Chaque prédiction est étiquetée par rôle (`model_role=champion|canary`) dans Prometheus
+  (`gravity_predictions_total`, `gravity_canary_requests_total`) → comparaison en direct. Endpoint
+  `GET /canary_status`. **Dégradation gracieuse vérifiée** : si le challenger n'est pas chargeable, le
+  canary se désactive sans casser le serving.
+- **Rollback :** endpoint `POST /rollback_champion` qui rebascule l'alias `champion` vers
+  `previous_champion` (posé automatiquement à chaque promotion) et recharge le modèle. **Testé en réel** :
+  `champion v2 → v1`, `previous_champion v1 → v2` (bascule réversible), serving maintenu via fallback.
+
+- **Reste :** promotion **canary automatique sous seuil** (auto-promote si le canary bat le champion sur
+  N requêtes) et **auto-rollback sur alerte** (drift/erreurs) — aujourd'hui déclenchés manuellement.
 
 ---
 
@@ -392,15 +402,15 @@ d'équité**). Côté CI/CD, il reste à durcir le lint, ajouter un scan sécuri
 | Tests ML | 8 | 5 | CRUD + tests data (Pandera) + preprocessing + **smoke modèle** ; reste tests serving/contract |
 | Pipeline automatisé | 8 | 6 | DAG ingestion→train→modèle ✓ (échec silencieux + race **corrigés**) ; reste orchestration à durcir |
 | CI/CD | 10 | 7 | CI (lint + **scan bandit** + tests data/modèle + docker) + CD GHCR ✓ ; lint/scan non bloquants, deploy placeholder |
-| Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias ✓ ; pas de rollback auto/staging |
-| Deploy / canary / rollback | 7 | 1 | Bascule brutale, pas de canary |
+| Model Registry | 5 | 4 | Registry + gate champion/challenger + serving par alias + `previous_champion` ✓ ; pas de stage `Staging` |
+| Deploy / canary / rollback | 7 | 4 | **Canary** (traffic split + métriques par rôle) + **rollback** (`previous_champion`, testé en réel) ✓ ; reste auto-promote/auto-rollback |
 | Monitoring ML | 8 | 6 | Prometheus + Evidently **vérifiés en réel** (drift 0.43 → alert) ; fenêtre proxy, perf online absente |
 | Monitoring infra + alerting | 5 | 4 | Prometheus + Grafana ✓ ; **alerting drift via webhook** (Slack-compatible) + tests ✓ ; reste règles Grafana infra |
 | Lineage | 5 | 4 | Chaque run tague **dataset_digest + git_sha** (+ shape/colonnes) ✓ ; reste à relier au versioning DVC effectif |
 | Sécurité | 5 | 4 | Secrets externalisés (.env, compose en `${VAR}`) + Fernet réelle + LOAD_EXAMPLES=false ; reste TLS/auth/scan |
 | Gouvernance / doc | 4 | 3 | Model Card + Datasheet rédigés ; placeholders (métriques/fairness) à remplir |
 | Performance / coût | 3 | 1 | Pas de load test |
-| **Total** | **100** | **≈ 68** | **Bon projet MLOps** |
+| **Total** | **100** | **≈ 71** | **Bon projet MLOps** |
 
 ### Feuille de route (par impact décroissant)
 

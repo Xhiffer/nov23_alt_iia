@@ -14,9 +14,12 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Union
 
+import os
 import time
 from prometheus_client import Counter, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from canary import read_canary_pct, should_route_to_canary, CHAMPION, CANARY
 
 app = FastAPI()
 
@@ -30,7 +33,12 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_sch
 PREDICTIONS_TOTAL = Counter(
     "gravity_predictions_total",
     "Nombre de prédictions par classe de gravité prédite.",
-    ["predicted_class"],
+    ["predicted_class", "model_role"],
+)
+CANARY_REQUESTS_TOTAL = Counter(
+    "gravity_canary_requests_total",
+    "Nombre de requêtes servies par rôle de modèle (champion vs canary).",
+    ["model_role"],
 )
 PREDICTION_PROBABILITY = Histogram(
     "gravity_prediction_probability",
@@ -95,12 +103,47 @@ class DonneesAccident(BaseModel):
 # -----------------------
 model = None
 best_model_info = None
+# Canary (challenger) served to a fraction of traffic for live comparison.
+canary_model = None
+canary_model_info = None
 
 
 # -----------------------
 # Internal helpers
 # -----------------------
 MODEL_NAME = "gravity_classification"
+
+
+def _load_canary_internal(client, champion_version=None):
+    """Charge le modèle 'challenger' comme canary, s'il existe et diffère du champion.
+    Sans challenger (ou identique au champion), le canary est désactivé."""
+    global canary_model, canary_model_info
+    canary_model = None
+    canary_model_info = None
+    try:
+        cv = client.get_model_version_by_alias(MODEL_NAME, "challenger")
+    except Exception:
+        print("ℹ️ No challenger alias; canary disabled.")
+        return
+    if champion_version is not None and str(cv.version) == str(champion_version):
+        print("ℹ️ Challenger == champion; canary disabled.")
+        return
+    try:
+        canary_model = mlflow.sklearn.load_model(f"models:/{MODEL_NAME}@challenger")
+        run = client.get_run(cv.run_id)
+        canary_model_info = {
+            "source": "registry:challenger",
+            "model_name": MODEL_NAME,
+            "version": cv.version,
+            "run_id": cv.run_id,
+            "f1_macro": run.data.metrics.get("f1_macro"),
+            "accuracy": run.data.metrics.get("accuracy"),
+        }
+        print(f"🐤 Loaded canary (challenger) {MODEL_NAME} v{cv.version}")
+    except Exception as e:
+        print(f"⚠️ Failed to load challenger as canary ({e}); canary disabled.")
+        canary_model = None
+        canary_model_info = None
 
 
 def _load_best_model_internal():
@@ -126,6 +169,7 @@ def _load_best_model_internal():
             "accuracy": run.data.metrics.get("accuracy"),
         }
         print(f"✅ Loaded champion {MODEL_NAME} v{mv.version}")
+        _load_canary_internal(client, champion_version=mv.version)
         return
     except Exception as e:
         print(f"⚠️ No champion alias available ({e}); falling back to best run by accuracy.")
@@ -166,11 +210,21 @@ def _load_best_model_internal():
 
 def _predict_from_donnees(accident: DonneesAccident) -> dict:
     """Core prediction logic using the loaded model and a DonneesAccident instance."""
-    global model, best_model_info
+    global model, best_model_info, canary_model, canary_model_info
 
     # Lazy-load model if not loaded yet
     if model is None:
         _load_best_model_internal()
+
+    # Canary routing: send CANARY_TRAFFIC_PCT% of traffic to the challenger.
+    role = CHAMPION
+    active_model = model
+    active_info = best_model_info
+    if canary_model is not None and should_route_to_canary(read_canary_pct()):
+        role = CANARY
+        active_model = canary_model
+        active_info = canary_model_info
+    CANARY_REQUESTS_TOTAL.labels(model_role=role).inc()
 
     # Convert to DataFrame matching training features
     data = pd.DataFrame([accident.model_dump()])
@@ -182,12 +236,12 @@ def _predict_from_donnees(accident: DonneesAccident) -> dict:
     # Run prediction (timed + instrumented for Prometheus)
     start = time.perf_counter()
     try:
-        pred = model.predict(data)[0]
+        pred = active_model.predict(data)[0]
 
         # Optional: probability if the model supports predict_proba
         proba = None
-        if hasattr(model, "predict_proba"):
-            proba_arr = model.predict_proba(data)
+        if hasattr(active_model, "predict_proba"):
+            proba_arr = active_model.predict_proba(data)
             proba = float(np.max(proba_arr[0]))
     except Exception:
         PREDICT_ERRORS_TOTAL.inc()
@@ -196,14 +250,15 @@ def _predict_from_donnees(accident: DonneesAccident) -> dict:
         PREDICT_LATENCY.observe(time.perf_counter() - start)
 
     # Record ML metrics
-    PREDICTIONS_TOTAL.labels(predicted_class=str(int(pred))).inc()
+    PREDICTIONS_TOTAL.labels(predicted_class=str(int(pred)), model_role=role).inc()
     if proba is not None:
         PREDICTION_PROBABILITY.observe(proba)
 
     return {
         "gravite_estimee": int(pred),
         "probabilite": proba,
-        "model_info": best_model_info,
+        "model_role": role,
+        "model_info": active_info,
     }
 
 
@@ -215,6 +270,60 @@ def load_best_model():
     try:
         _load_best_model_internal()
         return {"message": "✅ Model loaded successfully", "best_model_info": best_model_info}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# -----------------------
+# Canary status + rollback (champion/challenger governance)
+# -----------------------
+@app.get("/canary_status")
+def canary_status():
+    """État courant du canary : modèles chargés et part de trafic configurée."""
+    return {
+        "canary_traffic_pct": read_canary_pct(),
+        "champion": best_model_info,
+        "canary": canary_model_info,
+        "canary_active": canary_model is not None and read_canary_pct() > 0,
+    }
+
+
+@app.post("/rollback_champion")
+def rollback_champion():
+    """Rollback : rebascule l'alias 'champion' vers 'previous_champion'.
+
+    L'ancien champion devient le nouveau 'previous_champion' (rollback réversible),
+    puis les modèles sont rechargés. Nécessite qu'un 'previous_champion' existe
+    (posé automatiquement lors d'une promotion — voir le script d'entraînement).
+    """
+    try:
+        mlflow.set_tracking_uri("http://mlflow:5000")
+        client = MlflowClient()
+        try:
+            previous = client.get_model_version_by_alias(MODEL_NAME, "previous_champion")
+        except Exception:
+            return {"error": "No 'previous_champion' alias to roll back to."}
+
+        current = None
+        try:
+            current = client.get_model_version_by_alias(MODEL_NAME, "champion")
+        except Exception:
+            current = None
+
+        if current is not None and str(current.version) == str(previous.version):
+            return {"error": "previous_champion == champion; nothing to roll back."}
+
+        client.set_registered_model_alias(MODEL_NAME, "champion", previous.version)
+        if current is not None:
+            client.set_registered_model_alias(MODEL_NAME, "previous_champion", current.version)
+
+        _load_best_model_internal()
+        return {
+            "message": "↩️ Rolled back champion.",
+            "new_champion_version": previous.version,
+            "demoted_version": current.version if current is not None else None,
+            "best_model_info": best_model_info,
+        }
     except Exception as e:
         return {"error": str(e)}
 

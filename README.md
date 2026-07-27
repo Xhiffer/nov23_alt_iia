@@ -162,9 +162,16 @@ Le service `gravity_classification` charge dynamiquement le meilleur run MLflow 
 
 | Endpoint            | Méthode | Description |
 | ------------------- | ------- | ----------- |
-| `/load_best_model`  | POST    | (Re)charge le meilleur modèle depuis MLflow |
+| `/load_best_model`  | POST    | (Re)charge le champion (+ challenger comme canary) depuis MLflow |
 | `/predict_gravite`  | POST    | Prédiction à partir d'un JSON `DonneesAccident` (36 features) |
 | `/estimer_gravite`  | POST    | Vidéo + JSON → prédiction → persistance via `backend_sql` |
+| `/canary_status`    | GET     | Modèles chargés (champion/canary) + part de trafic canary |
+| `/rollback_champion`| POST    | Rebascule `champion` → `previous_champion` et recharge |
+
+**Déploiement canary & rollback.** Le serving charge le **challenger** en plus du champion et route
+`CANARY_TRAFFIC_PCT`% du trafic vers lui (0 = désactivé) ; chaque prédiction est étiquetée
+`model_role=champion|canary` dans Prometheus pour comparaison. `POST /rollback_champion` revient au
+`previous_champion` (alias posé automatiquement à chaque promotion).
 
 ## Monitoring ML
 
@@ -234,7 +241,7 @@ uniquement). Avant tout déploiement :
 
 ## Feuille de route MLOps
 
-L'auto-évaluation détaillée (≈ 68/100) et la feuille de route priorisée figurent dans
+L'auto-évaluation détaillée (≈ 71/100) et la feuille de route priorisée figurent dans
 [`RENDU_MLOPS_reponses.md`](RENDU_MLOPS_reponses.md). La gouvernance du modèle est documentée dans
 [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) et [`docs/DATASET_DATASHEET.md`](docs/DATASET_DATASHEET.md).
 Le **versioning des données (DVC/MinIO)** et le **lineage par run** (digest dataset + SHA git) sont
