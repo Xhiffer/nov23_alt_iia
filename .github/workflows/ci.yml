@@ -83,6 +83,12 @@ jobs:
         working-directory: backend_sql
         run: pytest pytests/ -v --cov=. --cov-report=term-missing
 
+      # Les tests des micro-services modèles vivent hors de backend_sql/pytests
+      # et ne seraient pas collectés par la commande ci-dessus.
+      - name: Run model service tests (canary routing)
+        working-directory: models/gravity_classification
+        run: pytest test_canary.py -v
+
   docker-build:
     name: Validate Docker build
     runs-on: ubuntu-latest

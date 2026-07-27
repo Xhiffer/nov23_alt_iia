@@ -254,15 +254,22 @@ véhicules, resultat_ai, ai_training_data) et un `pytest.py` dans `gravity_class
 
 - **Canary :** le service `gravity_classification` charge le **challenger** en plus du champion et route
   `CANARY_TRAFFIC_PCT`% du trafic vers lui (0 = désactivé). Logique de routing pure et testée
-  (`models/gravity_classification/canary.py`, 6 tests ; part mesurée ≈ 20,6 % pour un réglage à 20 %).
-  Chaque prédiction est étiquetée par rôle (`model_role=champion|canary`) dans Prometheus
-  (`gravity_predictions_total`, `gravity_canary_requests_total`) → comparaison en direct. Endpoint
-  `GET /canary_status`. **Dégradation gracieuse vérifiée** : si le challenger n'est pas chargeable, le
-  canary se désactive sans casser le serving.
+  (`models/gravity_classification/canary.py`, 6 tests **exécutés en CI** ; part mesurée ≈ 20,6 % pour un
+  réglage à 20 %). Chaque prédiction est étiquetée par rôle (`model_role=champion|canary`) dans Prometheus
+  (`gravity_predictions_total`, `gravity_canary_requests_total`). Endpoint `GET /canary_status`.
+  **Dégradation gracieuse vérifiée** : si le challenger n'est pas chargeable, le canary se désactive sans
+  casser le serving.
 - **Rollback :** endpoint `POST /rollback_champion` qui rebascule l'alias `champion` vers
-  `previous_champion` (posé automatiquement à chaque promotion) et recharge le modèle. **Testé en réel** :
-  `champion v2 → v1`, `previous_champion v1 → v2` (bascule réversible), serving maintenu via fallback.
+  `previous_champion` (posé automatiquement à chaque promotion), recharge le modèle **et vérifie que la
+  version ciblée est réellement servie**. Si elle ne l'est pas (artefact illisible → repli automatique),
+  les alias sont **restaurés** et l'appel échoue en **HTTP 500** : pas de succès silencieux.
+  **Les deux chemins testés en réel** : succès (`v1 → v2`, `source: registry:champion, version: 2`) et
+  échec (`v2 → v1` illisible → 500 « Aliases restored », alias et modèle servi revenus à v2).
 
+- ⚠️ **Limites :** le **canary bout-en-bout** (trafic réellement routé vers un challenger) n'a pas pu être
+  exercé — le registre ne contient qu'une version chargeable (v1 est au format d'artefact hérité) ; seuls
+  le chargement, la désactivation gracieuse et le routing unitaire sont validés. Le dashboard Grafana
+  agrège encore `sum by (predicted_class)`, donc la **répartition champion/canary n'y est pas affichée**.
 - **Reste :** promotion **canary automatique sous seuil** (auto-promote si le canary bat le champion sur
   N requêtes) et **auto-rollback sur alerte** (drift/erreurs) — aujourd'hui déclenchés manuellement.
 

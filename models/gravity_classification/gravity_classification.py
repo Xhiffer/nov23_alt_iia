@@ -1,5 +1,5 @@
 import requests
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 import json
 from datetime import datetime
@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Union
 
-import os
 import time
 from prometheus_client import Counter, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -295,6 +294,10 @@ def rollback_champion():
     L'ancien champion devient le nouveau 'previous_champion' (rollback réversible),
     puis les modèles sont rechargés. Nécessite qu'un 'previous_champion' existe
     (posé automatiquement lors d'une promotion — voir le script d'entraînement).
+
+    Le rollback est **vérifié** : si le modèle ciblé n'est pas réellement servi
+    après rechargement (artefact illisible, etc.), les alias sont restaurés et
+    l'appel échoue en 500 — jamais de succès silencieux.
     """
     try:
         mlflow.set_tracking_uri("http://mlflow:5000")
@@ -302,7 +305,7 @@ def rollback_champion():
         try:
             previous = client.get_model_version_by_alias(MODEL_NAME, "previous_champion")
         except Exception:
-            return {"error": "No 'previous_champion' alias to roll back to."}
+            raise HTTPException(status_code=409, detail="No 'previous_champion' alias to roll back to.")
 
         current = None
         try:
@@ -311,21 +314,44 @@ def rollback_champion():
             current = None
 
         if current is not None and str(current.version) == str(previous.version):
-            return {"error": "previous_champion == champion; nothing to roll back."}
+            raise HTTPException(
+                status_code=409, detail="previous_champion == champion; nothing to roll back."
+            )
 
         client.set_registered_model_alias(MODEL_NAME, "champion", previous.version)
         if current is not None:
             client.set_registered_model_alias(MODEL_NAME, "previous_champion", current.version)
 
         _load_best_model_internal()
+
+        # Vérification : le modèle réellement servi doit être la version ciblée.
+        # Sinon le chargement a basculé sur un repli (fallback) et le rollback
+        # n'a PAS pris effet -> on restaure l'état initial et on échoue.
+        served = best_model_info or {}
+        if served.get("source") != "registry:champion" or str(served.get("version")) != str(previous.version):
+            if current is not None:
+                client.set_registered_model_alias(MODEL_NAME, "champion", current.version)
+                client.set_registered_model_alias(MODEL_NAME, "previous_champion", previous.version)
+                _load_best_model_internal()
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Rollback to v{previous.version} failed: model not servable "
+                    f"(serving source='{served.get('source')}', version={served.get('version')}). "
+                    "Aliases restored."
+                ),
+            )
+
         return {
             "message": "↩️ Rolled back champion.",
             "new_champion_version": previous.version,
             "demoted_version": current.version if current is not None else None,
             "best_model_info": best_model_info,
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Rollback failed: {e}")
 
 
 # -----------------------
